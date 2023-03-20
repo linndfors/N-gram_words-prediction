@@ -1,5 +1,11 @@
 # N-gram_words-prediction
 
+#### To Run 
+
+```
+$ ./bin/ngram.exe
+```
+
 #### Speech and Language Processing. Daniel Jurafsky & James H. Martin: https://web.stanford.edu/~jurafsky/slp3/3.pdf
 
 ### C++ libraries and packages that support n-gram language models and parallel programming:
