@@ -15,3 +15,8 @@ $ ./bin/ngram.exe
  2. SRILM: http://www.speech.sri.com/projects/srilm/
  3. OpenGrm: http://www.opengrm.org/twiki/bin/view/GRM/NGramLibrary
  4. FastText: https://fasttext.cc/ (it is not a direct implementation of N-gram LM, but it represents each word in a text document as a bag of character N-grams, where each N-gram is treated as a separate feature. For example, the word "apple" might be represented as a bag of character trigrams ["app", "ppl", "ple"])
+
+
+
+### Additional material
+playlist: https://www.youtube.com/watch?v=CXpZnZM63Gg&list=PL8FFE3F391203C98C
