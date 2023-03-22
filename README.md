@@ -32,15 +32,15 @@ This is file with needed realisation. It is taken from [course](https://www.yout
 * Some [other realisation](https://www.kaggle.com/code/sauravmaheshkar/auto-completion-using-n-gram-models)
 
 ### Datasets
-* Google Web 5gram: contains English word n-grams and their observed frequency counts (24 GB) - https://catalog.ldc.upenn.edu/LDC2006T13
+* [Google Web 5gram](https://catalog.ldc.upenn.edu/LDC2006T13): contains English word n-grams and their observed frequency counts (24 GB)
 
-* Gutenberg Standardized Corpus: Standardized Project Gutenberg Corpus, 55905 books (3GB counts + 18GB tokens) - https://github.com/pgcorpus/gutenberg
+* [Gutenberg Standardized Corpus](https://github.com/pgcorpus/gutenberg): Standardized Project Gutenberg Corpus, 55905 books (3GB counts + 18GB tokens)
 
-* Harvard Library: over 12 million bibliographic records for materials held by the Harvard Library, including books, journals, electronic resources, manuscripts, archival materials, scores, audio, video and other materials. (4 GB) - http://library.harvard.edu/open-metadata#Harvard-Library-Bibliographic-Dataset
+* [Harvard Library](http://library.harvard.edu/open-metadata#Harvard-Library-Bibliographic-Dataset): over 12 million bibliographic records for materials held by the Harvard Library, including books, journals, electronic resources, manuscripts, archival materials, scores, audio, video and other materials. (4 GB)
 
-* Historical Newspapers Yearly N-grams and Entities Dataset: Yearly time series for the usage of the 1,000,000 most frequent 1-, 2-, and 3-grams from a subset of the British Newspaper Archive corpus, along with yearly time series for the 100,000 most frequent named entities linked to Wikipedia and a list of all articles and newspapers contained in the dataset (3.1 GB) - https://data.bris.ac.uk/data/dataset/dobuvuu00mh51q773bo8ybkdz
+* [Historical Newspapers Yearly N-grams and Entities Dataset](https://data.bris.ac.uk/data/dataset/dobuvuu00mh51q773bo8ybkdz): Yearly time series for the usage of the 1,000,000 most frequent 1-, 2-, and 3-grams from a subset of the British Newspaper Archive corpus, along with yearly time series for the 100,000 most frequent named entities linked to Wikipedia and a list of all articles and newspapers contained in the dataset (3.1 GB)
 
-* Other useful datasets for NLP can be found here: https://github.com/niderhoff/nlp-datasets
+* Other useful datasets for NLP can be found [here](https://github.com/niderhoff/nlp-datasets)
 
 ### Additional material
 playlist: https://www.youtube.com/watch?v=CXpZnZM63Gg&list=PL8FFE3F391203C98C
