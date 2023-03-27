@@ -3,8 +3,24 @@
 #### To Run 
 
 ```
-$ ./bin/ngram.exe
+$ ./bin/ngram.exe path n n_words_to_predict context*
 ```
+*context is optional
+
+#### Execution
+![image](https://user-images.githubusercontent.com/92580927/228017231-fbad39e6-c43a-44ab-84bb-d71e48ebd5d6.png)
+
+```
+$ ./bin/ngram.exe ./corpus.txt 2 6
+the cat and dog watched in the
+
+$ ./bin/ngram.exe ./corpus.txt 2 6 the cat
+and dog watched in the cat and
+
+$ ./bin/ngram.exe ./corpus.txt 2 6 warmth
+enveloped the cat and dog watched in
+```
+
 
 #### Speech and Language Processing. Daniel Jurafsky & James H. Martin: https://web.stanford.edu/~jurafsky/slp3/3.pdf
 
