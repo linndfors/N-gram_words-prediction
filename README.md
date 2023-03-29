@@ -60,3 +60,6 @@ This is file with needed realisation. It is taken from [course](https://www.yout
 
 ### Additional material
 playlist: https://www.youtube.com/watch?v=CXpZnZM63Gg&list=PL8FFE3F391203C98C
+
+### Libraries
+* Boost.locale (text separation/cleaning) : https://www.boost.org/doc/libs/1_81_0/libs/locale/doc/html/boundary_analysys.html 
