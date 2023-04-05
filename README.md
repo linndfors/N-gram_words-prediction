@@ -56,6 +56,10 @@ This is file with needed realisation. It is taken from [course](https://www.yout
 
 * [Historical Newspapers Yearly N-grams and Entities Dataset](https://data.bris.ac.uk/data/dataset/dobuvuu00mh51q773bo8ybkdz): Yearly time series for the usage of the 1,000,000 most frequent 1-, 2-, and 3-grams from a subset of the British Newspaper Archive corpus, along with yearly time series for the 100,000 most frequent named entities linked to Wikipedia and a list of all articles and newspapers contained in the dataset (3.1 GB)
 
+* [Brown corpus](http://www.sls.hawaii.edu/bley-vroman/brown_corpus.html): the Brown corpus (full name  Brown University Standard Corpus of Present-Day American English) was the first text corpus of American English. The original corpus was published in 1963–1964 by W. Nelson Francis and Henry Kučera (Department of Linguistics, Brown University Providence, Rhode Island, USA).
+
+The corpus consists of 1 million words (500 samples of 2000+ words each) of running text of edited English prose printed in the United States during the year 1961 and it was revised and amplified in 1979.
+
 * Other useful datasets for NLP can be found [here](https://github.com/niderhoff/nlp-datasets)
 
 ### Additional material
