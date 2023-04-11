@@ -67,8 +67,13 @@ public:
         unsigned int max_count = 0;
 
         for (const auto& [ngram, freq] : ngram_dict) {
+
             if (std::equal(std::prev(context.end(), n-1), context.end(),
                            ngram.begin(), std::prev(ngram.end()))) {
+//                for (auto elem:ngram) {
+//                    std::cout<<elem<<",";
+//                }
+//                std::cout<<freq<<std::endl;
                 if (freq > max_count) {
                     next_word = ngram.back();
                     max_count = freq;
@@ -78,24 +83,27 @@ public:
         return next_word;
     }
 
-    auto predict_words(int num_words, const word_list& context) -> word_list{
+    auto predict_words(int num_words, word_list& context) -> word_list{
         if (ngram_dict.empty() || context.empty() || context.size() < n-1){
             // No n-grams have been generated or the context is too short to generate a prediction
             return {};
         }
-
-        word_list predicted_words = {predict_word(context)};
+//        std::cout<<predict_word;
+//        std::string new_word = predict_word(context);
+//        context.push_back(new_word);
+        // predict new word based on n previous and add it to context
         for(int i = 0; i < num_words; ++i) {
-            std::string predicted_word = predict_word(predicted_words);
-            predicted_words.push_back(predicted_word);
+            std::string predicted_word = predict_word(context);
+            context.push_back(predicted_word);
         }
-        return predicted_words;
+        return context;
     }
 
     static void print_list(const word_list& words) {
         for (const auto& word : words) {
             std::cout << word << " ";
         }
+        std::cout<<"\n";
     }
 };
 
@@ -103,7 +111,6 @@ int main(int argc, char* argv[]) {
     std::string path;
     int n, num_words_to_predict;
     word_list context;
-
     if (argc < 4) {
         std::cout << "Usage: " << argv[0] << " path n num_words_to_predict context*" << std::endl;
         return 1;
