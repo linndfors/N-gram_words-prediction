@@ -25,7 +25,7 @@ class ngram {
 public:
     using ngram_t = std::vector<std::string>;
     using ngram_hash = container_hash<std::vector<std::string>>;
-    using ngram_dict_t = std::unordered_map<ngram_t, unsigned int, ngram_hash>;
+    using ngram_dict_t = std::unordered_map<ngram_t, int, ngram_hash>;
 
     ngram(const std::string& path, int n) : n(n) {
         read_corpus(path);
