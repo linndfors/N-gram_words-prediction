@@ -120,6 +120,7 @@ int main(int argc, char* argv[]) {
         num_words_to_predict = std::stoi(argv[3]);
 
         if (argc > 4) {
+            context.emplace_back("<s>");
             for(int i = 4; i < argc; ++i) {
                 context.emplace_back(argv[i]);
             }
