@@ -3,6 +3,11 @@ project(ngram)
 
 set(EXECUTABLE_OUTPUT_PATH ../bin)
 
-set(CMAKE_CXX_STANDARD 17)
+set(CMAKE_CXX_STANDARD 20)
 
-add_executable(ngram main.cpp)
+add_executable(${PROJECT_NAME} main.cpp ngram_predictor/ngram_predictor.cpp ngram_predictor/ngram_predictor.hpp)
+target_include_directories(${PROJECT_NAME} PRIVATE ngram_predictor)
+
+find_package(Boost 1.71.0 REQUIRED COMPONENTS container)
+
+target_link_libraries(${PROJECT_NAME} Boost::container)
