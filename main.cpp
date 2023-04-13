@@ -22,7 +22,11 @@ int main(int argc, char* argv[]) {
         num_words_to_predict = std::stoi(argv[3]);
 
         if (argc > 4) {
-            context.emplace_back("<s>");
+            // add <s> to start of context so its length is at least n-1
+            for (int i = 0; i < (n - 1) - (argc - 4); ++i) {
+                context.emplace_back("<s>");
+            }
+
             for(int i = 4; i < argc; ++i) {
                 context.emplace_back(argv[i]);
             }
