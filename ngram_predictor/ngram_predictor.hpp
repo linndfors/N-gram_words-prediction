@@ -10,12 +10,10 @@
 #include <boost/functional/hash.hpp>
 
 
-// hash function for vector
-// to be used in std::unordered_map as hash function for key
 // to allow std::unordered_map use std::vector<std::string> as a key
-template <typename Container>
-struct container_hash {
-    std::size_t operator()(Container const& c) const {
+template <>
+struct std::hash<std::vector<std::string>> {
+    std::size_t operator()(std::vector<std::string> const& c) const {
         return boost::hash_range(c.begin(), c.end());
     }
 };
@@ -24,8 +22,7 @@ struct container_hash {
 class ngram {
 public:
     using ngram_t = std::vector<std::string>;
-    using ngram_hash = container_hash<ngram_t>;
-    using ngram_dict_t = std::unordered_map<ngram_t, int, ngram_hash>;
+    using ngram_dict_t = std::unordered_map<ngram_t, int>;
 
     ngram(const std::string& path, int n) : n(n) {
         read_corpus(path);
