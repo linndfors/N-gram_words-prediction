@@ -9,6 +9,10 @@
 #include <unordered_map>
 #include <boost/functional/hash.hpp>
 
+#include <filesystem>
+#include "ts_queue.hpp"
+#include "oneapi/tbb/concurrent_hash_map.h"
+
 
 // to allow std::unordered_map use std::vector<std::string> as a key
 template <>
@@ -21,16 +25,19 @@ struct std::hash<std::vector<std::string>> {
 
 class ngram {
 public:
-    using ngram_t = std::vector<std::string>;
+    using word_t = std::string;
+    using ngram_t = std::vector<word_t>;
     using ngram_dict_t = std::unordered_map<ngram_t, int>;
+    using ngram_dict_t_tbb = oneapi::tbb::concurrent_hash_map<ngram_t, int>;
 
-    ngram(const std::string& path, int n) : n(n) {
-        read_corpus(path);
-    }
+    ngram(std::string& path, int n);
 
     static void print_list(const ngram_t& words);
 
-    void read_corpus(const std::string &file_name);
+    void read_corpus();
+
+    void write_ngrams_count(const std::string& filename);
+    void write_ngrams_count_with_sort(const std::string& filename);
 
     auto predict_word(const ngram_t& context) -> std::string;
 
@@ -38,7 +45,25 @@ public:
 
 private:
     int n;
-    ngram_dict_t ngram_dict;
+//    ngram_dict_t ngram_dict;
+    ngram_dict_t_tbb ngram_dict;
+
+    std::string path;
+    std::vector<std::string> indexing_extensions{".txt"}, archives_extensions{".zip"};
+    size_t indexing_threads = 4;
+    size_t max_file_size = 10000000;
+    size_t filenames_queue_size = 10000, raw_files_queue_size = 10000;
+
+    ts_queue<std::filesystem::path> filenames_queue;  // queue for filenames
+    ts_queue<std::pair<std::string, std::string>> raw_files_queue;  // queue for raw files with their extensions
+
+
+    void read_archive(const std::string &file_content);
+    void count_ngrams_in_str(std::string &file_content);
+
+    void find_files();
+    void read_files_into_binaries();
+    void count_ngrams();
 };
 
 #endif //NGRAM_NGRAM_PREDICTOR_HPP

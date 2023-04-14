@@ -8,32 +8,6 @@ void ngram::print_list(const ngram::ngram_t &words)  {
     std::cout<<"\n";
 }
 
-void ngram::read_corpus(const std::string &file_name) {
-    std::ifstream file(file_name);
-
-    std::string word;
-    ngram_t words;
-    words.resize(n-1, "<s>");
-
-    while (file >> word) {
-        // Convert word to lowercase
-        std::transform(word.begin(), word.end(), word.begin(),
-                       [](unsigned char c) { return std::tolower(c); });
-        // Remove any non-alphanumeric characters from the word
-        word.erase(std::remove_if(word.begin(), word.end(), [](char c) {
-            return !std::isalnum(c); }), word.end());
-
-        // Append word to current n-gram
-        words.push_back(word);
-
-        if (words.size() == n) {
-            // If n-gram has been formed, add it to the map and remove the first word to shift the n-gram
-            ngram_dict[words]++;
-            words.erase(words.begin());
-        }
-    }
-}
-
 auto ngram::predict_word(const ngram_t& context) -> std::string {
     if (ngram_dict.empty() || context.empty() || context.size() < n-1){
         // No n-grams have been generated or the context is too short to generate a prediction
