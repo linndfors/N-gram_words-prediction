@@ -1,14 +1,14 @@
 #include "ngram_predictor.hpp"
 
 
-void ngram::print_list(const ngram::ngram_t &words)  {
+void ngram_predictor::print_list(const ngram_predictor::ngram_t &words)  {
     for (const auto& word : words) {
         std::cout << word << " ";
     }
     std::cout<<"\n";
 }
 
-auto ngram::predict_word(const ngram_t& context) -> std::string {
+auto ngram_predictor::predict_word(const ngram_t& context) -> std::string {
     if (ngram_dict.empty() || context.empty() || context.size() < n-1){
         // No n-grams have been generated or the context is too short to generate a prediction
         return "";
@@ -34,7 +34,7 @@ auto ngram::predict_word(const ngram_t& context) -> std::string {
     return next_word;
 }
 
-auto ngram::predict_words(int num_words, ngram_t& context) -> ngram_t {
+auto ngram_predictor::predict_words(int num_words, ngram_t& context) -> ngram_t {
     if (ngram_dict.empty() || context.empty() || context.size() < n-1){
         // No n-grams have been generated or the context is too short to generate a prediction
         return {};

@@ -23,14 +23,14 @@ struct std::hash<std::vector<std::string>> {
 };
 
 
-class ngram {
+class ngram_predictor {
 public:
     using word_t = std::string;
     using ngram_t = std::vector<word_t>;
     using ngram_dict_t = std::unordered_map<ngram_t, int>;
     using ngram_dict_t_tbb = oneapi::tbb::concurrent_hash_map<ngram_t, int>;
 
-    ngram(std::string& path, int n);
+    ngram_predictor(std::string& path, int n);
 
     static void print_list(const ngram_t& words);
 

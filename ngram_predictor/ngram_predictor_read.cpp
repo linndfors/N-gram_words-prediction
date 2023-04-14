@@ -6,21 +6,21 @@
 #include <archive_entry.h>
 #include "ngram_predictor.hpp"
 
-ngram::ngram(std::string& path, int n) : n(n), path(path),
-filenames_queue(filenames_queue_size),
-raw_files_queue(raw_files_queue_size) {
+ngram_predictor::ngram_predictor(std::string& path, int n) : n(n), path(path),
+                                                             filenames_queue(filenames_queue_size),
+                                                             raw_files_queue(raw_files_queue_size) {
     boost::locale::generator gen;
     std::locale loc = gen("en_US.UTF-8");
     std::locale::global(loc);
 };
 
 
-void ngram::read_corpus() {
+void ngram_predictor::read_corpus() {
     std::vector<std::thread> threads;
-    threads.emplace_back(&ngram::find_files, this);
-    threads.emplace_back(&ngram::read_files_into_binaries, this);
+    threads.emplace_back(&ngram_predictor::find_files, this);
+    threads.emplace_back(&ngram_predictor::read_files_into_binaries, this);
     for (size_t i = 0; i < indexing_threads; ++i) {
-        threads.emplace_back(&ngram::count_ngrams, this);
+        threads.emplace_back(&ngram_predictor::count_ngrams, this);
     }
 
     for (auto &thread: threads) {
@@ -28,7 +28,7 @@ void ngram::read_corpus() {
     }
 }
 
-void ngram::find_files() {
+void ngram_predictor::find_files() {
     if (!std::filesystem::exists(path)) {
         std::cerr << "Error: input directory " << path << " does not exist." << std::endl;
         exit(26);
@@ -51,7 +51,7 @@ void ngram::find_files() {
     filenames_queue.push(std::filesystem::path{}); // end of queue
 }
 
-void ngram::read_files_into_binaries() {
+void ngram_predictor::read_files_into_binaries() {
     while (true) {
         std::filesystem::path filename = filenames_queue.pop();
         if (filename.empty()) {
@@ -81,7 +81,7 @@ void ngram::read_files_into_binaries() {
     }
 }
 
-void ngram::count_ngrams() {
+void ngram_predictor::count_ngrams() {
     while (true) {
         std::pair<std::string, std::string> file_content = raw_files_queue.pop();
         if (file_content.first.empty() || file_content.second.empty()) {
@@ -98,7 +98,7 @@ void ngram::count_ngrams() {
     }
 }
 
-void ngram::read_archive(const std::string &file_content) {
+void ngram_predictor::read_archive(const std::string &file_content) {
     struct archive *archive = archive_read_new();
     struct archive_entry *entry;
 
@@ -133,7 +133,7 @@ void ngram::read_archive(const std::string &file_content) {
     archive_read_free(archive);
 }
 
-void ngram::count_ngrams_in_str(std::string &file_content) {
+void ngram_predictor::count_ngrams_in_str(std::string &file_content) {
     namespace bl = boost::locale;
 
     file_content = bl::fold_case(bl::normalize(file_content));
@@ -165,7 +165,7 @@ void ngram::count_ngrams_in_str(std::string &file_content) {
 }
 
 
-void ngram::write_ngrams_count(const std::string &filename) {
+void ngram_predictor::write_ngrams_count(const std::string &filename) {
     std::ofstream out_file(filename);
     if (!out_file.is_open()) {
         std::cerr << "Error: failed to open file for writing: " << filename << std::endl;
@@ -187,7 +187,7 @@ void ngram::write_ngrams_count(const std::string &filename) {
 }
 
 // easier to debug on big files, but slower
-void ngram::write_ngrams_count_with_sort(const std::string &filename) {
+void ngram_predictor::write_ngrams_count_with_sort(const std::string &filename) {
     std::ofstream out_file(filename);
     if (!out_file.is_open()) {
         std::cerr << "Error: failed to open file for writing: " << filename << std::endl;

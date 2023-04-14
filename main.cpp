@@ -36,9 +36,9 @@ int main(int argc, char* argv[]) {
     }
 
 
-    ngram ng = ngram(path, n);
+    ngram_predictor ng = ngram_predictor(path, n);
     ng.read_corpus();
     ng.write_ngrams_count("./ngrams.txt");
-    ngram::print_list(ng.predict_words(num_words_to_predict, context));
+    ngram_predictor::print_list(ng.predict_words(num_words_to_predict, context));
     return 0;
 }
