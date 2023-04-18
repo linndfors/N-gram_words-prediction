@@ -10,8 +10,9 @@
 #include <boost/functional/hash.hpp>
 
 #include <filesystem>
-#include "ts_queue.hpp"
+//#include "ts_queue.hpp"
 #include "oneapi/tbb/concurrent_hash_map.h"
+#include "oneapi/tbb/concurrent_queue.h"
 
 
 // to allow std::unordered_map use std::vector<std::string> as a key
@@ -29,6 +30,8 @@ public:
     using ngram_t = std::vector<word_t>;
     using ngram_dict_t = std::unordered_map<ngram_t, int>;
     using ngram_dict_t_tbb = oneapi::tbb::concurrent_hash_map<ngram_t, int>;
+    template<class T>
+    using concurrent_queue = oneapi::tbb::concurrent_bounded_queue<T>;
 
     ngram_predictor(std::string& path, int n);
 
@@ -54,8 +57,8 @@ private:
     size_t max_file_size = 10000000;
     size_t filenames_queue_size = 10000, raw_files_queue_size = 10000;
 
-    ts_queue<std::filesystem::path> filenames_queue;  // queue for filenames
-    ts_queue<std::pair<std::string, std::string>> raw_files_queue;  // queue for raw files with their extensions
+    concurrent_queue<std::filesystem::path> filenames_queue;  // queue for filenames
+    concurrent_queue<std::pair<std::string, std::string>> raw_files_queue;  // queue for raw files with their extensions
 
 
     void read_archive(const std::string &file_content);

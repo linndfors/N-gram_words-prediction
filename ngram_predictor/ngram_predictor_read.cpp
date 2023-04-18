@@ -7,8 +7,10 @@
 #include "ngram_predictor.hpp"
 
 ngram_predictor::ngram_predictor(std::string& path, int n) : n(n), path(path),
-                                                             filenames_queue(filenames_queue_size),
-                                                             raw_files_queue(raw_files_queue_size) {
+                                                             filenames_queue(),
+                                                             raw_files_queue() {
+    filenames_queue.set_capacity(filenames_queue_size);
+    raw_files_queue.set_capacity(raw_files_queue_size);
     boost::locale::generator gen;
     std::locale loc = gen("en_US.UTF-8");
     std::locale::global(loc);
@@ -53,7 +55,8 @@ void ngram_predictor::find_files() {
 
 void ngram_predictor::read_files_into_binaries() {
     while (true) {
-        std::filesystem::path filename = filenames_queue.pop();
+        std::filesystem::path filename;
+        filenames_queue.pop(filename);
         if (filename.empty()) {
             for (size_t i = 0; i < indexing_threads; ++i) {
                 raw_files_queue.push(std::move(std::pair<std::string, std::string>{})); // end of queue
@@ -83,7 +86,8 @@ void ngram_predictor::read_files_into_binaries() {
 
 void ngram_predictor::count_ngrams() {
     while (true) {
-        std::pair<std::string, std::string> file_content = raw_files_queue.pop();
+        std::pair<std::string, std::string> file_content;
+        raw_files_queue.pop(file_content);
         if (file_content.first.empty() || file_content.second.empty()) {
             break;
         }
@@ -172,15 +176,16 @@ void ngram_predictor::write_ngrams_count(const std::string &filename) {
         exit(4);
     }
 
-    for (auto const &[key, val]: ngram_dict) {
-        for (auto const &word: key) {
-            out_file << word << " ";
+    try {
+        for (auto const &[key, val]: ngram_dict) {
+            for (auto const &word: key) {
+                out_file << word << " ";
+            }
+            out_file << "   " << val << std::endl;
         }
-        out_file << "   " << val << std::endl;
-        if (out_file.bad()) {
-            std::cerr << "Error writing in an out file: " << filename << std::endl;
-            exit(6);
-        }
+    } catch (const std::exception &e) {
+        std::cerr << "Error writing in an out file: " << filename << std::endl;
+        exit(6);
     }
 
     out_file.close();
@@ -201,15 +206,17 @@ void ngram_predictor::write_ngrams_count_with_sort(const std::string &filename) 
                   return a.second > b.second;
               });
 
-    for (auto const &[key, val]: sorted_words) {
-        for (auto const &word: key) {
-            out_file << word << " ";
+    try {
+        for (auto const &[key, val]: sorted_words) {
+            for (auto const &word: key) {
+                out_file << word << " ";
+            }
+            out_file << "   " << val << std::endl;
         }
-        out_file << "   " << val << std::endl;
-        if (out_file.bad()) {
-            std::cerr << "Error writing in an out file: " << filename << std::endl;
-            exit(6);
-        }
+    }
+    catch (const std::exception &e) {
+        std::cerr << "Error writing in an out file: " << filename << std::endl;
+        exit(6);
     }
 
     out_file.close();
