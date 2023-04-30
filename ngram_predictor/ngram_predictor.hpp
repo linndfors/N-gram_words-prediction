@@ -7,8 +7,9 @@
 #include <vector>
 #include <algorithm>
 #include <unordered_map>
+#include <unordered_set>
 #include <boost/functional/hash.hpp>
-
+#include <mutex>
 #include <filesystem>
 //#include "ts_queue.hpp"
 #include "oneapi/tbb/concurrent_hash_map.h"
@@ -39,6 +40,7 @@ public:
 
     void read_corpus();
 
+    void print_time() const;
     void write_ngrams_count(const std::string& filename);
     void write_ngrams_count_with_sort(const std::string& filename);
 
@@ -52,13 +54,16 @@ private:
     ngram_dict_t_tbb ngram_dict;
 
     std::string path;
-    std::vector<std::string> indexing_extensions{".txt"}, archives_extensions{".zip"};
+    std::unordered_set<std::string> indexing_extensions{".txt"};
+    std::unordered_set<std::string> archives_extensions{".zip"};
     size_t indexing_threads = 4;
+    size_t merging_threads = 4;
     size_t max_file_size = 10000000;
-    size_t filenames_queue_size = 10000, raw_files_queue_size = 10000;
+    size_t filenames_queue_size = 10000, raw_files_queue_size = 10000, dictionary_queue_size = 100;
 
     concurrent_queue<std::filesystem::path> filenames_queue;  // queue for filenames
     concurrent_queue<std::pair<std::string, std::string>> raw_files_queue;  // queue for raw files with their extensions
+    concurrent_queue<ngram_dict_t> dictionary_queue;  // queue for raw files with their extensions
 
 
     void read_archive(const std::string &file_content);
@@ -67,6 +72,13 @@ private:
     void find_files();
     void read_files_into_binaries();
     void count_ngrams();
+    void merge_dictionaries();
+
+
+    size_t remaining_poison_pills{};
+    std::mutex merge_mutex;
+
+    long long total_time{}, finding_time{}, reading_time{}, writing_time{};
 };
 
 #endif //NGRAM_NGRAM_PREDICTOR_HPP
