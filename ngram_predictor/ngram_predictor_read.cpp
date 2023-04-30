@@ -9,11 +9,9 @@
 
 ngram_predictor::ngram_predictor(std::string& path, int n) : n(n), path(path),
                                                              filenames_queue(),
-                                                             raw_files_queue(),
-                                                             dictionary_queue() {
+                                                             raw_files_queue() {
     filenames_queue.set_capacity(static_cast<long>(filenames_queue_size));
     raw_files_queue.set_capacity(static_cast<long>(raw_files_queue_size));
-    dictionary_queue.set_capacity(static_cast<long>(dictionary_queue_size));
 
     boost::locale::generator gen;
     std::locale loc = gen("en_US.UTF-8");
@@ -24,16 +22,11 @@ ngram_predictor::ngram_predictor(std::string& path, int n) : n(n), path(path),
 void ngram_predictor::read_corpus() {
     auto start = get_current_time_fenced();
 
-    remaining_poison_pills = indexing_threads;
-
     std::vector<std::thread> threads;
     threads.emplace_back(&ngram_predictor::find_files, this);
     threads.emplace_back(&ngram_predictor::read_files_into_binaries, this);
     for (size_t i = 0; i < indexing_threads; ++i) {
         threads.emplace_back(&ngram_predictor::count_ngrams, this);
-    }
-    for (size_t i = 0; i < merging_threads; ++i) {
-        threads.emplace_back(&ngram_predictor::merge_dictionaries, this);
     }
 
     for (auto &thread: threads) {
@@ -110,7 +103,6 @@ void ngram_predictor::count_ngrams() {
         std::pair<std::string, std::string> file_content;
         raw_files_queue.pop(file_content);
         if (file_content.first.empty() || file_content.second.empty()) {
-            dictionary_queue.push(ngram_dict_t {}); // end of queue
             break;
         }
 
@@ -136,12 +128,11 @@ void ngram_predictor::read_archive(const std::string &file_content) {
 
     while (archive_read_next_header(archive, &entry) == ARCHIVE_OK) {
         auto extension = std::filesystem::path(archive_entry_pathname(entry)).extension().string();
-        if (indexing_extensions.find(extension) == indexing_extensions.end() &&
-        archive_entry_size(entry) > max_file_size) {
+        if (indexing_extensions.find(extension) == indexing_extensions.end()) {
             continue;
         }
         size_t size = archive_entry_size(entry);
-        if (size <= 0) {
+        if (size <= 0 || size > max_file_size) {
             continue;
         }
         std::string contents;
@@ -178,39 +169,14 @@ void ngram_predictor::count_ngrams_in_str(std::string &file_content) {
         temp_ngram.insert(temp_ngram.begin(), "<s>");
     }
     // access to ngram_dict is thread-safe
-    ++temp_ngram_dict[temp_ngram];
+    ngram_dict_t_tbb::accessor a;
+    ngram_dict.insert(a, temp_ngram);
+    ++a->second;
     for (; it != e; ++it) {
         temp_ngram.erase(temp_ngram.begin());
         temp_ngram.emplace_back(*it);
-        ++temp_ngram_dict[temp_ngram];
-    }
-
-    if (!temp_ngram_dict.empty()) {
-        dictionary_queue.push(temp_ngram_dict);
-    }
-}
-
-void ngram_predictor::merge_dictionaries() {
-    while (true) {
-        ngram_dict_t temp_map;
-        {
-            std::unique_lock<std::mutex> lock(merge_mutex);
-            if (remaining_poison_pills == 0) {
-                break;
-            }
-
-            dictionary_queue.pop(temp_map);
-            if (temp_map.empty()) {
-                --remaining_poison_pills;
-                continue;
-            }
-        }
-
-        for (auto const &[key, val]: temp_map) {
-            ngram_dict_t_tbb::accessor a;
-            ngram_dict.insert(a, key);
-            a->second += val;
-        }
+        ngram_dict.insert(a, temp_ngram);
+        ++a->second;
     }
 }
 
