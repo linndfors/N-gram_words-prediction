@@ -63,7 +63,7 @@ private:
 
     concurrent_queue<std::filesystem::path> filenames_queue;  // queue for filenames
     concurrent_queue<std::pair<std::string, std::string>> raw_files_queue;  // queue for raw files with their extensions
-    concurrent_queue<ngram_dict_t> dictionary_queue;  // queue for raw files with their extensions
+    concurrent_queue<ngram_dict_t> dictionary_queue;  // queue for maps from one file
 
 
     void read_archive(const std::string &file_content);
@@ -78,7 +78,7 @@ private:
     size_t remaining_poison_pills{};
     std::mutex merge_mutex;
 
-    long long total_time{}, finding_time{}, reading_time{}, writing_time{};
+    long long total_time{}, finding_time{}, reading_time{};
 };
 
 #endif //NGRAM_NGRAM_PREDICTOR_HPP
