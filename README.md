@@ -63,3 +63,37 @@ I tried to run on `/hutenberg_lib/3`, and it took all my RAM (11GB from start po
 I tried with different queue size, and nothing changed. It was locking on the same point.
 
 Maybe it's because of memory overload.
+
+#### With tbb parallel_pipeline
+Previous way (with only indexing threads) was applied to tbb parallel_pipeline.
+###### Pipeline
+```
+std::filesystem::path find_files(oneapi::tbb::flow_control& fc)  ==>
+std::pair<std::string, std::string> read_files_into_binaries(std::filesystem::path filename) ==>
+void count_ngrams(std::pair<std::string, std::string> file_content);
+```
+Run with 16 live tokens
+```bash
+❯ ./bin/ngram /hutenberg_lib/3/3/3 3 6 to me
+Total counting time: 2350 ms
+Finding files time: 0 ms
+Reading files time: 8 ms
+to me and i have been a great 
+```
+Memory usage: ~**1 GB**
+
+```bash
+❯ ./bin/ngram /hutenberg_lib/3/3 3 6 to me
+Total counting time: 26439 ms
+Finding files time: 90 ms
+Reading files time: 292 ms
+to me and i have been a great 
+```
+Memory usage: ~**6.7 GB**
+
+On `/hutenberg_lib/3` the same happened.
+It took all RAM (12GB from start point) + 6 GB of swap, and them that lock.
+
+
+### Conclusion
+TBB parallel_pipeline looks like the best way to run this program.
