@@ -1,4 +1,5 @@
 #include "ngram_predictor.hpp"
+#include <boost/locale.hpp>
 
 
 void ngram_predictor::print_list(std::vector<word> words)  {
