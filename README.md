@@ -7,10 +7,12 @@ $ ./bin/ngram path n n_words_to_predict context*
 ```
 *context is optional
 
-### Results
-#### With indexing and merging threads
+## Results
+### With indexing and merging threads
+> Code: [this commit](https://github.com/linndfors/N-gram_words-prediction/tree/3e4a325958b72ed03aa8a9589cff6411bc10e22c)
+
 Was used tbb concurrent_bounded_queue and tbb concurrent_hash_map.
-###### Pipeline
+##### Pipeline
 ![img.png](./img/merge_pl.png)
 Run with 4 indexing and 4 merging threads
 ```bash
@@ -33,11 +35,13 @@ Memory usage: ~**7.4 GB**
 I tried to run on `/hutenberg_lib/3`, and it took all my RAM (8GB from start point) + 14 GB of swap, and then some lock happened (all core activity was below 20%, but memory was very slowly increasing).
 I tried with different queue size(it should be connected to queues running out of space)
 
-#### With only indexing threads
+### With only indexing threads
+> Code: [this commit](https://github.com/linndfors/N-gram_words-prediction/tree/53d2c440fc7be6fb8db1dcfc94678bc2b467daf3)
+
 "Only indexing threads" means that indexing threads are merging their result directly into global map, and merging threads are not used.
 
 Was used tbb concurrent_bounded_queue and tbb concurrent_hash_map.
-###### Pipeline
+##### Pipeline
 ![img.png](./img/index_pl.png)
 Run with 4 indexing threads
 ```bash
@@ -58,15 +62,16 @@ to me and i have been a great
 ```
 Memory usage: ~**7 GB**
 
-
 I tried to run on `/hutenberg_lib/3`, and it took all my RAM (11GB from start point) + 6 GB of swap, and them the same as before happened.
 I tried with different queue size, and nothing changed. It was locking on the same point.
 
 Maybe it's because of memory overload.
 
-#### With tbb parallel_pipeline
+### With tbb parallel_pipeline
+> Code: [this commit](https://github.com/linndfors/N-gram_words-prediction/tree/954f2a7408e0847654cb2d15510d346be59c21a9)
+
 Previous way (with only indexing threads) was applied to tbb parallel_pipeline.
-###### Pipeline
+##### Pipeline
 ```
 std::filesystem::path find_files(oneapi::tbb::flow_control& fc)  ==>
 std::pair<std::string, std::string> read_files_into_binaries(std::filesystem::path filename) ==>
