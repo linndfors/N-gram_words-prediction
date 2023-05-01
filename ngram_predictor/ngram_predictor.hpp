@@ -22,32 +22,59 @@ struct std::hash<std::vector<std::string>> {
     }
 };
 
+// to allow std::unordered_map use std::vector<int> as a key
+template <>
+struct std::hash<std::vector<int>> {
+    std::size_t operator()(std::vector<int> const& c) const {
+        return boost::hash_range(c.begin(), c.end());
+    }
+};
+
 
 class ngram_predictor {
 public:
-    using word_t = std::string;
-    using ngram_t = std::vector<word_t>;
-    using ngram_dict_t = std::unordered_map<ngram_t, int>;
-    using ngram_dict_t_tbb = oneapi::tbb::concurrent_hash_map<ngram_t, int>;
+    using word = std::string;
+    using id = int;
+    using ngram_id = std::vector<id>;
+    using ngram_str = std::vector<word>;
+    using ngram_dict_t = std::unordered_map<word, id>;
+    using ngram_dict_int_t = std::unordered_map<ngram_id, int>;
+
+    // tbd
+//    using ngram_t = std::vector<word_t>;
+//    using ngram_dict_t = std::unordered_map<ngram_t, int>;
+    using ngram_dict_t_tbb = oneapi::tbb::concurrent_hash_map<ngram_id, int>;
+    using words_dict_tbb = oneapi::tbb::concurrent_hash_map<word, id>;
 
     ngram_predictor(std::string& path, int n);
 
-    static void print_list(const ngram_t& words);
+    static void print_list(std::vector<word> words);
 
     void read_corpus();
 
     void print_time() const;
     void write_ngrams_count(const std::string& filename);
-    void write_ngrams_count_with_sort(const std::string& filename);
+    //void write_ngrams_count_with_sort(const std::string& filename);
 
-    auto predict_word(const ngram_t& context) -> std::string;
+    auto predict_id(const ngram_id& context) -> id ;
 
-    auto predict_words(int num_words, ngram_t& context) -> ngram_t;
+    auto predict_words(int num_words, ngram_str& context) -> ngram_str;
+    auto predict_words(int num_words, std::string& context) -> ngram_str;
+//    auto predict_word(int num_words, ngram_str& context) -> word;
+    auto convert_to_words(const ngram_id& ngram) -> ngram_str;
+    auto convert_to_word(const id& id) -> word;
+    auto convert_to_ids(const ngram_str& ngram) -> ngram_id;
+    auto convert_to_id(const word& word) -> id;
 
 private:
     int n;
 //    ngram_dict_t ngram_dict;
-    ngram_dict_t_tbb ngram_dict;
+    ngram_dict_t_tbb ngram_dict_int;
+
+    // word - id
+    words_dict_tbb words_dict{{"<s>", 1}};
+    // [id, id] - count
+//    ngram_dict_int_t ngram_dict_int;
 
     std::string path;
     std::unordered_set<std::string> indexing_extensions{".txt"};

@@ -1,9 +1,6 @@
 #include <iostream>
-#include <fstream>
 #include <string>
 #include <vector>
-#include <algorithm>
-#include <unordered_map>
 
 #include "ngram_predictor.hpp"
 
@@ -39,7 +36,8 @@ int main(int argc, char* argv[]) {
     ngram_predictor ng = ngram_predictor(path, n);
     ng.read_corpus();
     ng.print_time();
-//    ng.write_ngrams_count("./ngrams.txt");
+    ng.write_ngrams_count("./ngrams.txt");
     ngram_predictor::print_list(ng.predict_words(num_words_to_predict, context));
     return 0;
+
 }

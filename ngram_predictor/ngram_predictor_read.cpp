@@ -1,7 +1,6 @@
 #include <limits>
 #include <boost/locale.hpp>
 #include <filesystem>
-#include <thread>
 #include <archive.h>
 #include <archive_entry.h>
 #include "time_measurements.hpp"
@@ -156,27 +155,33 @@ void ngram_predictor::count_ngrams_in_str(std::string &file_content) {
     bl::boundary::ssegment_index words_index(bl::boundary::word, contents.begin(), contents.end());
     words_index.rule(bl::boundary::word_letters);
 
-    ngram_t temp_ngram;
-    ngram_dict_t temp_ngram_dict;
+//    ngram_str temp_ngram;
+
+    ngram_id temp_ngram;
+    ngram_dict_int_t temp_ngram_dict;
+//    ngram_dict_t temp_ngram_dict;
+
     auto it = words_index.begin();
     auto e = words_index.end();
 
     int i = 0;
     for (; i < n && it != e; ++i, ++it) {
-        temp_ngram.emplace_back(*it);
+        // add id to the temporary ngram
+        temp_ngram.emplace_back(convert_to_id(*it));
     }
     // if word count < n, fill with <s>
     for (; i < n; ++i) {
-        temp_ngram.insert(temp_ngram.begin(), "<s>");
+        temp_ngram.insert(temp_ngram.begin(), convert_to_id("<s>"));
     }
     // access to ngram_dict is thread-safe
     ngram_dict_t_tbb::accessor a;
-    ngram_dict.insert(a, temp_ngram);
+//    ngram_dict_int.emplace_back(a, temp_ngram);
+    ngram_dict_int.insert(a, temp_ngram);
     ++a->second;
     for (; it != e; ++it) {
         temp_ngram.erase(temp_ngram.begin());
-        temp_ngram.emplace_back(*it);
-        ngram_dict.insert(a, temp_ngram);
+        temp_ngram.emplace_back(convert_to_id(*it));
+        ngram_dict_int.insert(a, temp_ngram);
         ++a->second;
     }
 }
@@ -196,7 +201,7 @@ void ngram_predictor::write_ngrams_count(const std::string &filename) {
     }
 
     try {
-        for (auto const &[key, val]: ngram_dict) {
+        for (auto const &[key, val]: ngram_dict_int) {
             for (auto const &word: key) {
                 out_file << word << " ";
             }
@@ -211,32 +216,32 @@ void ngram_predictor::write_ngrams_count(const std::string &filename) {
 }
 
 // easier to debug on big files, but slower
-void ngram_predictor::write_ngrams_count_with_sort(const std::string &filename) {
-    std::ofstream out_file(filename);
-    if (!out_file.is_open()) {
-        std::cerr << "Error: failed to open file for writing: " << filename << std::endl;
-        exit(4);
-    }
-
-    std::vector<std::pair<std::vector<std::string>, int>> sorted_words(ngram_dict.begin(), ngram_dict.end());
-    std::sort(sorted_words.begin(), sorted_words.end(),
-              [](const std::pair<std::vector<std::string>, int> &a,
-                 const std::pair<std::vector<std::string>, int> &b) {
-                  return a.second > b.second;
-              });
-
-    try {
-        for (auto const &[key, val]: sorted_words) {
-            for (auto const &word: key) {
-                out_file << word << " ";
-            }
-            out_file << "   " << val << std::endl;
-        }
-    }
-    catch (const std::exception &e) {
-        std::cerr << "Error writing in an out file: " << filename << std::endl;
-        exit(6);
-    }
-
-    out_file.close();
-}
+//void ngram_predictor::write_ngrams_count_with_sort(const std::string &filename) {
+//    std::ofstream out_file(filename);
+//    if (!out_file.is_open()) {
+//        std::cerr << "Error: failed to open file for writing: " << filename << std::endl;
+//        exit(4);
+//    }
+//
+//    std::vector<std::pair<std::vector<std::string>, int>> sorted_words(ngram_dict.begin(), ngram_dict.end());
+//    std::sort(sorted_words.begin(), sorted_words.end(),
+//              [](const std::pair<std::vector<std::string>, int> &a,
+//                 const std::pair<std::vector<std::string>, int> &b) {
+//                  return a.second > b.second;
+//              });
+//
+//    try {
+//        for (auto const &[key, val]: sorted_words) {
+//            for (auto const &word: key) {
+//                out_file << word << " ";
+//            }
+//            out_file << "   " << val << std::endl;
+//        }
+//    }
+//    catch (const std::exception &e) {
+//        std::cerr << "Error writing in an out file: " << filename << std::endl;
+//        exit(6);
+//    }
+//
+//    out_file.close();
+//}
