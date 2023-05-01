@@ -9,6 +9,11 @@ add_executable(${PROJECT_NAME} main.cpp ngram_predictor/ngram_predictor.cpp ngra
         src/ts_queue.hpp ngram_predictor/ngram_predictor_read.cpp ngram_predictor/time_measurements.hpp)
 target_include_directories(${PROJECT_NAME} PRIVATE ngram_predictor)
 target_include_directories(${PROJECT_NAME} PRIVATE src)
+find_package(SQLite3 REQUIRED)
+if (SQLite3_FOUND)
+    include_directories(${SQLite3_INCLUDE_DIRS})
+    target_link_libraries(${PROJECT_NAME} ${SQLite3_LIBRARIES})
+endif()
 
 find_package(Boost 1.71.0 COMPONENTS system locale REQUIRED)
 target_link_libraries(${PROJECT_NAME} Boost::system Boost::locale)
