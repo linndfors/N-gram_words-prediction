@@ -16,15 +16,6 @@ ngram_predictor::ngram_predictor(std::string& path, int n) : n(n), path(path) {
     std::locale::global(loc);
 };
 
-static int callback(void *NotUsed, int argc, char **argv, char **azColName) {
-    int i;
-    for(i = 0; i<argc; i++) {
-        printf("%s = %s\n", azColName[i], argv[i] ? argv[i] : "NULL");
-    }
-    printf("\n");
-    return 0;
-}
-
 
 void ngram_predictor::read_corpus() {
     auto start = get_current_time_fenced();

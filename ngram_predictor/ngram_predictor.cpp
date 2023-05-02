@@ -1,5 +1,9 @@
 #include "ngram_predictor.hpp"
 #include <boost/locale.hpp>
+#include <stdio.h>
+#include <stdlib.h>
+#include <sqlite3.h>
+#include <string>
 
 
 void ngram_predictor::print_list(std::vector<word> words)  {
@@ -52,6 +56,39 @@ auto ngram_predictor::predict_words(int num_words, ngram_str& context) -> ngram_
 //        std::cout << "predicted word: " << convert_to_word(predicted_id) << std::endl;
         context.push_back(convert_to_word(predicted_id));
     }
+    sqlite3 *db;
+    char *zErrMsg = 0;
+    int rc;
+    char *sql;
+    /* Open database */
+    rc = sqlite3_open("n_grams.db", &db);
+    if( rc ) {
+        fprintf(stderr, "Can't open database: %s\n", sqlite3_errmsg(db));
+        exit(1);
+    } else {
+        fprintf(stdout, "Opened database successfully\n");
+    }
+    sql = "CREATE TABLE IF NOT EXISTS all_words_id (ID INT PRIMARY KEY, WORD VARCHAR(50));";
+    rc = sqlite3_exec(db, sql, callback, 0, &zErrMsg);
+
+    if( rc != SQLITE_OK ){
+        fprintf(stderr, "SQL error: %s\n", zErrMsg);
+        sqlite3_free(zErrMsg);
+    } else {
+//        fprintf(stdout, "Table created successfully\n");
+    }
+    for (const auto& pair : words_dict) {
+       std::string sql = "INSERT INTO all_words_id (ID, WORD) VALUES (" + std::to_string(pair.second) + ", '" + pair.first + "');";
+
+        rc = sqlite3_exec(db, sql.c_str(), callback, 0, &zErrMsg);
+        if (rc != SQLITE_OK) {
+            fprintf(stderr, "SQL error: %s\n", zErrMsg);
+            sqlite3_free(zErrMsg);
+        } else {
+//            fprintf(stdout, "Records created successfully\n");
+        }
+    }
+    sqlite3_close(db);
     return context;
 }
 
