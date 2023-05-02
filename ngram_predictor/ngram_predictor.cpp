@@ -56,36 +56,57 @@ auto ngram_predictor::predict_words(int num_words, ngram_str& context) -> ngram_
 //        std::cout << "predicted word: " << convert_to_word(predicted_id) << std::endl;
         context.push_back(convert_to_word(predicted_id));
     }
-    sqlite3 *db;
-    char *zErrMsg = 0;
-    int rc;
-    char *sql;
-    /* Open database */
-    rc = sqlite3_open("n_grams.db", &db);
-    if( rc ) {
-        fprintf(stderr, "Can't open database: %s\n", sqlite3_errmsg(db));
-        exit(1);
-    } else {
-        fprintf(stdout, "Opened database successfully\n");
-    }
-    sql = "CREATE TABLE IF NOT EXISTS all_words_id (ID INT PRIMARY KEY, WORD VARCHAR(50));";
-    rc = sqlite3_exec(db, sql, callback, 0, &zErrMsg);
 
-    if( rc != SQLITE_OK ){
-        fprintf(stderr, "SQL error: %s\n", zErrMsg);
-        sqlite3_free(zErrMsg);
-    } else {
-//        fprintf(stdout, "Table created successfully\n");
+    sqlite3 *db;
+    char *zErrMsg = nullptr;
+    int rc;
+
+    rc = sqlite3_open("n_grams.db", &db);
+    if (rc) {
+        std::cerr<<"Problem with open database"<<std::endl;
+        exit(6);
+    }
+    std::string sql = "DROP TABLE IF EXISTS all_words_id;";
+    rc = sqlite3_exec(db, sql.c_str(), callback, 0, &zErrMsg);
+    if (rc != SQLITE_OK) {
+        std::cerr<<"Problem with droping table"<<std::endl;
+        sqlite3_close(db);
+        exit(6);
+    }
+
+    sql = "CREATE TABLE all_words_id (ID INT PRIMARY KEY, WORD VARCHAR(50));";
+    rc = sqlite3_exec(db, sql.c_str(), callback, nullptr, &zErrMsg);
+
+    if( rc != SQLITE_OK ) {
+        std::cerr<<"Problem with creating table"<<std::endl;
+        sqlite3_close(db);
+        exit(6);
     }
     for (const auto& pair : words_dict) {
-       std::string sql = "INSERT INTO all_words_id (ID, WORD) VALUES (" + std::to_string(pair.second) + ", '" + pair.first + "');";
+        sqlite3_stmt* stmt;
+        sql = "INSERT INTO all_words_id (ID, WORD) VALUES (?, ?)";
 
-        rc = sqlite3_exec(db, sql.c_str(), callback, 0, &zErrMsg);
-        if (rc != SQLITE_OK) {
-            fprintf(stderr, "SQL error: %s\n", zErrMsg);
-            sqlite3_free(zErrMsg);
+        rc = sqlite3_prepare_v2(db, sql.c_str(), -1, &stmt, nullptr);
+
+        if (rc == SQLITE_OK) {
+            int id = pair.second;
+            std::string word = pair.first;
+
+            sqlite3_bind_int(stmt, 1, id);
+            sqlite3_bind_text(stmt, 2, word.c_str(), -1, SQLITE_STATIC);
+
+            rc = sqlite3_step(stmt);
+            if (rc != SQLITE_DONE) {
+                std::cerr << "Problem with inserting: " << sqlite3_errmsg(db) << std::endl;
+                sqlite3_finalize(stmt);
+                sqlite3_close(db);
+                exit(6);
+            }
+            sqlite3_finalize(stmt);
         } else {
-//            fprintf(stdout, "Records created successfully\n");
+            std::cerr << "Error preparing statement: " << sqlite3_errmsg(db) << std::endl;
+            sqlite3_close(db);
+            exit(6);
         }
     }
     sqlite3_close(db);

@@ -50,53 +50,52 @@ void ngram_predictor::read_corpus() {
                                            })
     );
     sqlite3 *db;
-    char *zErrMsg = 0;
+    char *zErrMsg = nullptr;
     int rc;
-//    char *sql;
 
-    /* Open database */
     rc = sqlite3_open("n_grams.db", &db);
 
-    if( rc ) {
-        fprintf(stderr, "Can't open database: %s\n", sqlite3_errmsg(db));
-        return;
-    } else {
-        fprintf(stdout, "Opened database successfully\n");
+    if (rc) {
+        std::cerr<<"Problem with opening database"<<std::endl;
+        exit(6);
     }
-    // create table
     std::string table_name = "n" + std::to_string(n) + "_grams_frequency";
-    std::string sql = "CREATE TABLE IF NOT EXISTS " + table_name + "(ID_WORD_0 INT);";
+    std::string sql = "DROP TABLE IF EXISTS " + table_name + ";";
+    rc = sqlite3_exec(db, sql.c_str(), callback, nullptr, &zErrMsg);
+    if (rc != SQLITE_OK) {
+        std::cerr<<"Problem with droping table"<<std::endl;
+        sqlite3_close(db);
+        exit(6);
+    }
+    sql = "CREATE TABLE " + table_name + "(ID_WORD_0 INT);";
+    rc = sqlite3_exec(db, sql.c_str(), callback, nullptr, &zErrMsg);
 
-    rc = sqlite3_exec(db, sql.c_str(), callback, 0, &zErrMsg);
-
-    if( rc != SQLITE_OK ){
-        fprintf(stderr, "SQL error: %s\n", zErrMsg);
-        sqlite3_free(zErrMsg);
-    } else {
-//        fprintf(stdout, "Table created successfully\n");
+    if (rc != SQLITE_OK) {
+        std::cerr<<"Problem with creating table"<<std::endl;
+        sqlite3_close(db);
+        exit(6);
     }
 
     if (n > 1) {
         for (int j = 1; j < n; ++j) {
             std::string col_name = "ID_WORD_" + std::to_string(j);
             std::string sql = "ALTER TABLE " + table_name + " ADD COLUMN " + col_name + " INT";
-            rc = sqlite3_exec(db, sql.c_str(), callback, 0, &zErrMsg);
+            rc = sqlite3_exec(db, sql.c_str(), callback, nullptr, &zErrMsg);
             if (rc != SQLITE_OK) {
-                fprintf(stderr, "SQL error: %s\n", zErrMsg);
-                sqlite3_free(zErrMsg);
-            } else {
-//                fprintf(stdout, "add cols successfully\n");
+                std::cerr<<"Problem with adding cloumns"<<std::endl;
+                sqlite3_close(db);
+                exit(6);
             }
         }
     }
     sql = "ALTER TABLE " + table_name + " ADD COLUMN " + "FREQUENCY" + " INT";
-    sqlite3_exec(db, sql.c_str(), callback, 0, &zErrMsg);
+    sqlite3_exec(db, sql.c_str(), callback, nullptr, &zErrMsg);
 
     for (const auto& pair : ngram_dict_int) {
         ngram_id words = pair.first;
         int value = pair.second;
-        std::string fields = "";
-        std::string words_id = "";
+        std::string fields;
+        std::string words_id;
         for (int i = 0; i < n; ++i) {
             words_id += std::to_string(words[i]);
             words_id += ", ";
@@ -107,10 +106,9 @@ void ngram_predictor::read_corpus() {
 
         rc = sqlite3_exec(db, sql.c_str(), callback, 0, &zErrMsg);
         if (rc != SQLITE_OK) {
-            fprintf(stderr, "SQL error: %s\n", zErrMsg);
-            sqlite3_free(zErrMsg);
-        } else {
-//            fprintf(stdout, "Records created successfully\n");
+            std::cerr<<"Problem with inserting"<<std::endl;
+            sqlite3_close(db);
+            exit(6);
         }
     }
     sqlite3_close(db);
