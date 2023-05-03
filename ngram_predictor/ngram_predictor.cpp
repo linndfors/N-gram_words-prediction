@@ -6,7 +6,7 @@
 #include <string>
 
 
-void ngram_predictor::print_list(std::vector<id> words)  {
+void ngram_predictor::print_list(std::vector<word> words)  {
     for (const auto& word : words) {
         std::cout << word << " ";
     }
@@ -75,6 +75,12 @@ auto ngram_predictor::predict_words(int num_words, ngram_str& context) -> ngram_
         sqlite3_close(db);
         exit(6);
     }
+    rc = sqlite3_exec(db, "BEGIN TRANSACTION;", callback, 0, &zErrMsg);
+    if (rc != SQLITE_OK) {
+        std::cerr << "Failed to begin transaction" << std::endl;
+        sqlite3_close(db);
+        exit(6);
+    }
     for (const auto& pair : words_dict) {
         sqlite3_stmt* stmt;
         sql = "INSERT INTO all_words_id (ID, WORD) VALUES (?, ?)";
@@ -102,7 +108,14 @@ auto ngram_predictor::predict_words(int num_words, ngram_str& context) -> ngram_
             exit(6);
         }
     }
+    rc = sqlite3_exec(db, "COMMIT;", callback, 0, &zErrMsg);
+    if (rc != SQLITE_OK) {
+        std::cerr << "Failed to commit transaction" << std::endl;
+        sqlite3_close(db);
+        exit(6);
+    }
     sqlite3_close(db);
+//    std::cout<<"context: "<<context<<std::endl;
     return context;
 }
 

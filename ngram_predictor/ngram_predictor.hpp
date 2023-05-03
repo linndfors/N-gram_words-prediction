@@ -57,7 +57,7 @@ public:
 
     ngram_predictor(std::string& path, int n);
 
-    static void print_list(std::vector<id> words);
+    static void print_list(std::vector<word> words);
 
     void read_corpus();
 

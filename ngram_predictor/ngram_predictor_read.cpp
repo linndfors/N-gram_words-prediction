@@ -90,7 +90,12 @@ void ngram_predictor::read_corpus() {
     }
     sql = "ALTER TABLE " + table_name + " ADD COLUMN " + "FREQUENCY" + " INT";
     sqlite3_exec(db, sql.c_str(), callback, nullptr, &zErrMsg);
-
+    rc = sqlite3_exec(db, "BEGIN TRANSACTION;", callback, 0, &zErrMsg);
+    if (rc != SQLITE_OK) {
+        std::cerr << "Failed to begin transaction" << std::endl;
+        sqlite3_close(db);
+        exit(6);
+    }
     for (const auto& pair : ngram_dict_int) {
         ngram_id words = pair.first;
         int value = pair.second;
@@ -110,6 +115,12 @@ void ngram_predictor::read_corpus() {
             sqlite3_close(db);
             exit(6);
         }
+    }
+    rc = sqlite3_exec(db, "COMMIT;", callback, 0, &zErrMsg);
+    if (rc != SQLITE_OK) {
+        std::cerr << "Failed to commit transaction" << std::endl;
+        sqlite3_close(db);
+        exit(6);
     }
     sqlite3_close(db);
     auto finish = get_current_time_fenced();
