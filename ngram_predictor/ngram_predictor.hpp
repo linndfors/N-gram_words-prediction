@@ -57,7 +57,7 @@ public:
 
     ngram_predictor(std::string& path, int n);
 
-    static void print_list(std::vector<word> words);
+    static void print_list(std::vector<id> words);
 
     void read_corpus();
 
@@ -72,8 +72,8 @@ public:
 //    auto predict_word(int num_words, ngram_str& context) -> word;
     auto convert_to_words(const ngram_id& ngram) -> ngram_str;
     auto convert_to_word(const id& id) -> word;
-    auto convert_to_ids(const ngram_str& ngram) -> ngram_id;
-    auto convert_to_id(const word& word) -> id;
+    auto convert_to_ids(const ngram_str& ngram, bool train) -> ngram_id;
+    auto convert_to_id(const word& word, bool train) -> id;
 
 private:
     int n;
@@ -81,7 +81,7 @@ private:
     ngram_dict_t_tbb ngram_dict_int;
 
     // word - id
-    words_dict_tbb words_dict{{"<s>", 1}};
+    words_dict_tbb words_dict{{"<s>", 1}, {"</s>", 2}, {"<unk>", 3}};
     // [id, id] - count
 //    ngram_dict_int_t ngram_dict_int;
 

@@ -37,7 +37,9 @@ int main(int argc, char* argv[]) {
     ng.read_corpus();
     ng.print_time();
     ng.write_ngrams_count("./ngrams.txt");
-    ngram_predictor::print_list(ng.predict_words(num_words_to_predict, context));
+//    std::cout << "Converted to ids: " << ng.convert_to_ids(context)<< std::endl;
+    ngram_predictor::print_list(ng.convert_to_ids(context, false));
+//    ngram_predictor::print_list(ng.predict_words(num_words_to_predict, context));
     return 0;
 
 }

@@ -6,7 +6,7 @@
 #include <string>
 
 
-void ngram_predictor::print_list(std::vector<word> words)  {
+void ngram_predictor::print_list(std::vector<id> words)  {
     for (const auto& word : words) {
         std::cout << word << " ";
     }
@@ -26,10 +26,6 @@ auto ngram_predictor::predict_id(const ngram_id& context) -> id {
 
         if (std::equal(std::prev(context.end(), n-1), context.end(),
                        ngram.begin(), std::prev(ngram.end()))) {
-//                for (auto elem:ngram) {
-//                    std::cout<<elem<<",";
-//                }
-//                std::cout<<freq<<std::endl;
             if (freq > max_count) {
                 next_id = ngram.back();
                 max_count = freq;
@@ -50,10 +46,7 @@ auto ngram_predictor::predict_words(int num_words, ngram_str& context) -> ngram_
     }
     // predict new word based on n previous and add it to context
     for(int i = 0; i < num_words; ++i) {
-        int predicted_id = predict_id(convert_to_ids(context));
-//        print_list(context);
-//        std::cout << "predicted id: " << predicted_id << std::endl;
-//        std::cout << "predicted word: " << convert_to_word(predicted_id) << std::endl;
+        int predicted_id = predict_id(convert_to_ids(context, false));
         context.push_back(convert_to_word(predicted_id));
     }
 
@@ -127,23 +120,27 @@ auto ngram_predictor::predict_words(int num_words, std::string& context) -> ngra
     return predict_words(num_words, vector_of_words);
 }
 
-auto ngram_predictor::convert_to_ids(const ngram_predictor::ngram_str &ngram) -> ngram_id {
+
+auto ngram_predictor::convert_to_ids(const ngram_predictor::ngram_str &ngram, bool train) -> ngram_id {
     ngram_id ngram_ids;
     words_dict_tbb::accessor a;
     for (const auto& word : ngram) {
         words_dict.insert(a, word);
+        // if training, add it to the dictionary
+        // if predicting, add <unk> to the dictionary
+        if (a->second == 0) {
+            if (train)
+                a->second = static_cast<int>(words_dict.size());
+            else
+                a->second = static_cast<int>(convert_to_id("<unk>", true));
+        }
         ngram_ids.push_back(a->second);
     }
     return ngram_ids;
 }
 
-auto ngram_predictor::convert_to_id(const ngram_predictor::word &word) -> id {
-    words_dict_tbb::accessor a;
-    words_dict.insert(a, word);
-    if (a->second == 0) {
-        a->second = static_cast<int>(words_dict.size());
-    }
-    return a->second;
+auto ngram_predictor::convert_to_id(const ngram_predictor::word &word, bool train) -> id {
+    return convert_to_ids({word}, train).front();
 }
 
 auto ngram_predictor::convert_to_words(const ngram_predictor::ngram_id &ngram) -> ngram_str {

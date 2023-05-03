@@ -233,20 +233,19 @@ void ngram_predictor::count_ngrams_in_str(std::string &file_content) {
     int i = 0;
     for (; i < n && it != e; ++i, ++it) {
         // add id to the temporary ngram
-        temp_ngram.emplace_back(convert_to_id(*it));
+        temp_ngram.emplace_back(convert_to_id(*it, true));
     }
     // if word count < n, fill with <s>
     for (; i < n; ++i) {
-        temp_ngram.insert(temp_ngram.begin(), convert_to_id("<s>"));
+        temp_ngram.insert(temp_ngram.begin(), convert_to_id("<s>", false));
     }
     // access to ngram_dict is thread-safe
     ngram_dict_t_tbb::accessor a;
-//    ngram_dict_int.emplace_back(a, temp_ngram);
     ngram_dict_int.insert(a, temp_ngram);
     ++a->second;
     for (; it != e; ++it) {
         temp_ngram.erase(temp_ngram.begin());
-        temp_ngram.emplace_back(convert_to_id(*it));
+        temp_ngram.emplace_back(convert_to_id(*it, true));
         ngram_dict_int.insert(a, temp_ngram);
         ++a->second;
     }
