@@ -98,6 +98,7 @@ auto ngram_predictor::predict_words(int num_words, std::string& context) -> ngra
     return predict_words(num_words, vector_of_words);
 }
 
+
 auto ngram_predictor::convert_to_ids(const ngram_predictor::ngram_str &ngram, bool train) -> ngram_id {
     ngram_id ngram_ids;
     words_dict_tbb::accessor a;
@@ -112,7 +113,10 @@ auto ngram_predictor::convert_to_ids(const ngram_predictor::ngram_str &ngram, bo
             ngram_ids.push_back(a->second);
         } else {
             m_words_dict.insert(a, word);
-            a->second = m_words_dict.size();
+            {
+                std::lock_guard<std::mutex> lock(m_words_id_mutex);
+                a->second = ++m_last_word_id;
+            }
             ngram_ids.push_back(a->second);
         }
     }

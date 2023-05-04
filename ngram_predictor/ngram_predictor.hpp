@@ -5,6 +5,7 @@
 #include <vector>
 #include <unordered_set>
 #include <filesystem>
+#include <mutex>
 #include <boost/functional/hash.hpp>
 #include "oneapi/tbb/concurrent_hash_map.h"
 
@@ -61,6 +62,8 @@ private:
     uint32_t M_START_TAG_ID = 1;
     uint32_t M_END_TAG_ID = 2;
     uint32_t M_UNKNOWN_TAG_ID = 3;
+    std::mutex m_words_id_mutex;
+    uint32_t m_last_word_id = 3;
     words_dict_tbb m_words_dict{{"<s>", M_START_TAG_ID}, {"</s>", M_END_TAG_ID}, {"<unk>", M_UNKNOWN_TAG_ID}};
 
     std::string m_path;
