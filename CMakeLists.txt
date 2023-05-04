@@ -7,7 +7,7 @@ set(CMAKE_CXX_STANDARD 20)
 
 
 add_executable(${PROJECT_NAME} main.cpp ngram_predictor/ngram_predictor.cpp ngram_predictor/ngram_predictor.hpp
-        ngram_predictor/ngram_predictor_read.cpp ngram_predictor/time_measurements.hpp ngram_predictor/smoothing.cpp ngram_predictor/smoothing.h)
+        ngram_predictor/ngram_predictor_read.cpp ngram_predictor/time_measurements.hpp)
 
 target_include_directories(${PROJECT_NAME} PRIVATE ngram_predictor)
 target_include_directories(${PROJECT_NAME} PRIVATE src)
