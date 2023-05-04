@@ -3,7 +3,8 @@
 
 #include <iostream>
 #include "ngram_predictor.hpp"
+#include <sqlite3.h>
 
-ngram_predictor::ngram_dict_int_t reduce(ngram_predictor::ngram_dict_int_t ngram_map);
+void reduce(std::string const& table_name, int n);
 
 #endif //NGRAM_REDUCE_N_GRAM_H
