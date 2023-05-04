@@ -1,4 +1,5 @@
 #include <fstream>
+#include <iostream>
 #include <boost/locale.hpp>
 #include <archive.h>
 #include <archive_entry.h>
