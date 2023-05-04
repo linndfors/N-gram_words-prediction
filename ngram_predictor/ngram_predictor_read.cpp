@@ -1,177 +1,82 @@
-#include <limits>
+#include <fstream>
 #include <boost/locale.hpp>
-#include <filesystem>
 #include <archive.h>
 #include <archive_entry.h>
 #include "time_measurements.hpp"
+#include "oneapi/tbb/parallel_pipeline.h"
 #include "ngram_predictor.hpp"
-#include <stdio.h>
-#include <stdlib.h>
-#include <sqlite3.h>
-#include <string>
-
-ngram_predictor::ngram_predictor(std::string& path, int n) : n(n), path(path) {
-    boost::locale::generator gen;
-    std::locale loc = gen("en_US.UTF-8");
-    std::locale::global(loc);
-};
 
 
 void ngram_predictor::read_corpus() {
     auto start = get_current_time_fenced();
 
-    check_if_path_is_dir();
-    auto path_iter = std::filesystem::recursive_directory_iterator(path);
+    parallel_read_pipeline();
+    write_ngrams_to_db();
+
+    auto finish = get_current_time_fenced();
+    m_total_training_time = to_ms(finish - start);
+}
+
+void ngram_predictor::parallel_read_pipeline() {
+    auto path_iter = std::filesystem::recursive_directory_iterator(m_path);
     auto path_end = std::filesystem::end(path_iter);
 
-    oneapi::tbb::parallel_pipeline(max_live_tokens,
-                                   oneapi::tbb::make_filter<void, std::filesystem::path>(
-                                           oneapi::tbb::filter_mode::serial_out_of_order,
-                                           [&](oneapi::tbb::flow_control& fc) -> std::filesystem::path {
-                                               auto start = get_current_time_fenced();
-                                               auto temp = find_files(fc, path_iter, path_end);
-                                               auto end = get_current_time_fenced();
-                                               finding_time += to_ms(end - start);
-                                               return temp;
-                                           }) &
-                                   oneapi::tbb::make_filter<std::filesystem::path, std::pair<std::string, std::string>>(
-                                           oneapi::tbb::filter_mode::serial_out_of_order,
-                                           [this](const std::filesystem::path &filename) -> std::pair<std::string, std::string> {
-                                               auto start = get_current_time_fenced();
-                                               auto temp = read_files_into_binaries(filename);
-                                               auto end = get_current_time_fenced();
-                                               reading_time += to_ms(end - start);
-                                               return temp;
-                                           }) &
-                                   oneapi::tbb::make_filter<std::pair<std::string, std::string>, void>(
-                                           oneapi::tbb::filter_mode::parallel,
-                                           [this](const std::pair<std::string, std::string>& raw_file) {
-                                               count_ngrams(raw_file);
-                                           })
+    oneapi::tbb::parallel_pipeline(m_max_live_tokens,
+                   oneapi::tbb::make_filter<void, std::filesystem::path>(
+                   oneapi::tbb::filter_mode::serial_out_of_order,
+                   [&](oneapi::tbb::flow_control& fc) -> std::filesystem::path {
+                       auto start = get_current_time_fenced();
+
+                       if (path_iter == path_end) {
+                           fc.stop();
+                           return {};
+                       }
+                       auto entry = *(path_iter++);
+                       auto temp = get_path_if_fit(entry);
+
+                       auto end = get_current_time_fenced();
+                       m_finding_time += to_ms(end - start);
+                       return temp;
+                   }) &
+                    oneapi::tbb::make_filter<std::filesystem::path, std::pair<std::string, std::string>>(
+                   oneapi::tbb::filter_mode::serial_out_of_order,
+                   [this](const std::filesystem::path &filename) -> std::pair<std::string, std::string> {
+                       auto start = get_current_time_fenced();
+
+                       auto temp = read_file_into_binary(filename);
+
+                       auto end = get_current_time_fenced();
+                       m_reading_time += to_ms(end - start);
+                       return temp;
+                   }) &
+                    oneapi::tbb::make_filter<std::pair<std::string, std::string>, void>(
+                   oneapi::tbb::filter_mode::parallel,
+                   [this](const std::pair<std::string, std::string>& raw_file) {
+                       count_ngrams_in_file(raw_file);
+                   })
     );
-    sqlite3 *db;
-    char *zErrMsg = nullptr;
-    int rc;
-
-    rc = sqlite3_open("n_grams.db", &db);
-
-    if (rc) {
-        std::cerr<<"Problem with opening database"<<std::endl;
-        exit(6);
-    }
-    std::string table_name = "n" + std::to_string(n) + "_grams_frequency";
-    std::string sql = "DROP TABLE IF EXISTS " + table_name + ";";
-    rc = sqlite3_exec(db, sql.c_str(), callback, nullptr, &zErrMsg);
-    if (rc != SQLITE_OK) {
-        std::cerr<<"Problem with droping table"<<std::endl;
-        sqlite3_close(db);
-        exit(6);
-    }
-    sql = "CREATE TABLE " + table_name + "(ID_WORD_0 INT);";
-    rc = sqlite3_exec(db, sql.c_str(), callback, nullptr, &zErrMsg);
-
-    if (rc != SQLITE_OK) {
-        std::cerr<<"Problem with creating table"<<std::endl;
-        sqlite3_close(db);
-        exit(6);
-    }
-
-    if (n > 1) {
-        for (int j = 1; j < n; ++j) {
-            std::string col_name = "ID_WORD_" + std::to_string(j);
-            std::string sql = "ALTER TABLE " + table_name + " ADD COLUMN " + col_name + " INT";
-            rc = sqlite3_exec(db, sql.c_str(), callback, nullptr, &zErrMsg);
-            if (rc != SQLITE_OK) {
-                std::cerr<<"Problem with adding cloumns"<<std::endl;
-                sqlite3_close(db);
-                exit(6);
-            }
-        }
-    }
-    sql = "ALTER TABLE " + table_name + " ADD COLUMN " + "FREQUENCY" + " INT";
-    sqlite3_exec(db, sql.c_str(), callback, nullptr, &zErrMsg);
-    rc = sqlite3_exec(db, "BEGIN TRANSACTION;", callback, 0, &zErrMsg);
-    if (rc != SQLITE_OK) {
-        std::cerr << "Failed to begin transaction" << std::endl;
-        sqlite3_close(db);
-        exit(6);
-    }
-    for (const auto& pair : ngram_dict_int) {
-        ngram_id words = pair.first;
-        int value = pair.second;
-        std::string fields;
-        std::string words_id;
-        for (int i = 0; i < n; ++i) {
-            words_id += std::to_string(words[i]);
-            words_id += ", ";
-            fields += "ID_WORD_" + std::to_string(i);
-            fields += ", ";
-        }
-        sql = "INSERT INTO " + table_name + "(" + fields + "FREQUENCY) VALUES (" + words_id + std::to_string(value) + ");";
-
-        rc = sqlite3_exec(db, sql.c_str(), callback, 0, &zErrMsg);
-        if (rc != SQLITE_OK) {
-            std::cerr<<"Problem with inserting"<<std::endl;
-            sqlite3_close(db);
-            exit(6);
-        }
-    }
-    rc = sqlite3_exec(db, "COMMIT;", callback, 0, &zErrMsg);
-    if (rc != SQLITE_OK) {
-        std::cerr << "Failed to commit transaction" << std::endl;
-        sqlite3_close(db);
-        exit(6);
-    }
-    sqlite3_close(db);
-    auto finish = get_current_time_fenced();
-    total_time = to_ms(finish - start);
 }
 
-void ngram_predictor::check_if_path_is_dir() {
-    if (!std::filesystem::exists(path)) {
-        std::cerr << "Error: input directory " << path << " does not exist." << std::endl;
-        exit(26);
-    }
-    if (!std::filesystem::is_directory(path)) {
-        std::cerr << "Error: expected directory, got " << path << std::endl;
-        exit(26);
-    }
-}
-
-std::filesystem::path ngram_predictor::find_files(oneapi::tbb::flow_control& fc, std::filesystem::recursive_directory_iterator& iter,
-                                                  std::filesystem::recursive_directory_iterator& end) {
-
-    if (iter == end) {
-        fc.stop();
-        return {};
-    }
-
-    auto entry = *(iter++);
-
-    std::string extension = entry.path().extension().string();
-    if ( (indexing_extensions.find(extension) != indexing_extensions.end() && entry.file_size() < max_file_size) ||
-         (archives_extensions.find(extension) != archives_extensions.end()) ) {
+std::filesystem::path ngram_predictor::get_path_if_fit(const std::filesystem::directory_entry& entry) {
+    auto extension = entry.path().extension().string();
+    if ((m_indexing_extensions.find(extension) != m_indexing_extensions.end() && entry.file_size() < m_max_file_size) ||
+        (m_archives_extensions.find(extension) != m_archives_extensions.end()) ) {
         return entry.path();
     }
-
     return {};
 }
 
-std::pair<std::string, std::string> ngram_predictor::read_files_into_binaries(const std::filesystem::path& filename) {
+std::pair<std::string, std::string> ngram_predictor::read_file_into_binary(const std::filesystem::path& filename) {
     if (filename.empty()) {
         return {};
     }
     std::ifstream file(filename, std::ios::binary);
     if (!file.is_open()) {
-//            std::cerr << "Failed to open file " << filename << std::endl;
+//        std::cerr << "Failed to open file " << filename << std::endl;
         return {};
     }
 
-    // "really large files" solution from https://web.archive.org/web/20180314195042/http://cpp.indi.frih.net/blog/2014/09/how-to-read-an-entire-file-into-memory-in-cpp/
-    auto const start_pos = file.tellg();
-    file.ignore(std::numeric_limits<std::streamsize>::max());
-    auto const char_count = file.gcount();
-    file.seekg(start_pos);
+    auto char_count = std::filesystem::file_size(filename);
     auto s = std::string(char_count, char{});
     file.read(&s[0], static_cast<std::streamsize>(s.size()));
     file.close();
@@ -179,37 +84,37 @@ std::pair<std::string, std::string> ngram_predictor::read_files_into_binaries(co
     return std::pair{s, filename.extension().string()};
 }
 
-void ngram_predictor::count_ngrams(std::pair<std::string, std::string> file_content) {
+void ngram_predictor::count_ngrams_in_file(std::pair<std::string, std::string> file_content) {
     if (file_content.first.empty() || file_content.second.empty()) {
         return;
     }
 
-    if (archives_extensions.find(file_content.second) != archives_extensions.end()) {
-        read_archive(file_content.first);
+    if (m_archives_extensions.find(file_content.second) != m_archives_extensions.end()) {
+        count_ngrams_in_archive(file_content.first);
     } else {
         count_ngrams_in_str(file_content.first);
     }
 }
 
-void ngram_predictor::read_archive(const std::string &file_content) {
+void ngram_predictor::count_ngrams_in_archive(const std::string &archive_content) {
     struct archive *archive = archive_read_new();
     struct archive_entry *entry;
 
     archive_read_support_format_all(archive);
     archive_read_support_filter_all(archive);
 
-    int r = archive_read_open_memory(archive, file_content.data(), file_content.size());
+    int r = archive_read_open_memory(archive, archive_content.data(), archive_content.size());
     if (r != ARCHIVE_OK) {
         return;
     }
 
     while (archive_read_next_header(archive, &entry) == ARCHIVE_OK) {
         auto extension = std::filesystem::path(archive_entry_pathname(entry)).extension().string();
-        if (indexing_extensions.find(extension) == indexing_extensions.end()) {
+        if (m_indexing_extensions.find(extension) == m_indexing_extensions.end()) {
             continue;
         }
         size_t size = archive_entry_size(entry);
-        if (size <= 0 || size > max_file_size) {
+        if (size <= 0 || size > m_max_file_size) {
             continue;
         }
         std::string contents;
@@ -232,44 +137,26 @@ void ngram_predictor::count_ngrams_in_str(std::string &file_content) {
     bl::boundary::ssegment_index words_index(bl::boundary::word, contents.begin(), contents.end());
     words_index.rule(bl::boundary::word_letters);
 
-//    ngram_str temp_ngram;
-
     ngram_id temp_ngram;
-    ngram_dict_int_t temp_ngram_dict;
-//    ngram_dict_t temp_ngram_dict;
 
-    auto it = words_index.begin();
-    auto e = words_index.end();
+    ngram_dict_id_tbb::accessor a;
+    for (const auto &word : words_index) {
+        temp_ngram.emplace_back(convert_to_id(word, true));
+        if (temp_ngram.size() == m_n) {
+            m_ngram_dict_id.insert(a, temp_ngram);
+            ++a->second;
+            temp_ngram.erase(temp_ngram.begin());
+        }
+    }
 
-    int i = 0;
-    for (; i < n && it != e; ++i, ++it) {
-        // add id to the temporary ngram
-        temp_ngram.emplace_back(convert_to_id(*it, true));
-    }
-    // if word count < n, fill with <s>
-    for (; i < n; ++i) {
-        temp_ngram.insert(temp_ngram.begin(), convert_to_id("<s>", false));
-    }
-    // access to ngram_dict is thread-safe
-    ngram_dict_t_tbb::accessor a;
-    ngram_dict_int.insert(a, temp_ngram);
-    ++a->second;
-    for (; it != e; ++it) {
-        temp_ngram.erase(temp_ngram.begin());
-        temp_ngram.emplace_back(convert_to_id(*it, true));
-        ngram_dict_int.insert(a, temp_ngram);
+    if (temp_ngram.size() < m_n) {
+        temp_ngram.insert(temp_ngram.begin(), M_START_TAG_ID, m_n - temp_ngram.size());
+        m_ngram_dict_id.insert(a, temp_ngram);
         ++a->second;
     }
 }
 
-
-void ngram_predictor::print_time() const {
-    std::cout << "Total counting time: " << total_time << " ms" << std::endl;
-    std::cout << "Finding files time: " << finding_time << " ms" << std::endl;
-    std::cout << "Reading files time: " << reading_time << " ms" << std::endl;
-}
-
-void ngram_predictor::write_ngrams_count(const std::string &filename) {
+void ngram_predictor::write_ngrams_freq(const std::string &filename) {
     std::ofstream out_file(filename);
     if (!out_file.is_open()) {
         std::cerr << "Error: failed to open file for writing: " << filename << std::endl;
@@ -277,7 +164,7 @@ void ngram_predictor::write_ngrams_count(const std::string &filename) {
     }
 
     try {
-        for (auto const &[key, val]: ngram_dict_int) {
+        for (auto const &[key, val]: m_ngram_dict_id) {
             for (auto const &word: key) {
                 out_file << word << " ";
             }
@@ -291,33 +178,21 @@ void ngram_predictor::write_ngrams_count(const std::string &filename) {
     out_file.close();
 }
 
-// easier to debug on big files, but slower
-//void ngram_predictor::write_ngrams_count_with_sort(const std::string &filename) {
-//    std::ofstream out_file(filename);
-//    if (!out_file.is_open()) {
-//        std::cerr << "Error: failed to open file for writing: " << filename << std::endl;
-//        exit(4);
-//    }
-//
-//    std::vector<std::pair<std::vector<std::string>, int>> sorted_words(ngram_dict.begin(), ngram_dict.end());
-//    std::sort(sorted_words.begin(), sorted_words.end(),
-//              [](const std::pair<std::vector<std::string>, int> &a,
-//                 const std::pair<std::vector<std::string>, int> &b) {
-//                  return a.second > b.second;
-//              });
-//
-//    try {
-//        for (auto const &[key, val]: sorted_words) {
-//            for (auto const &word: key) {
-//                out_file << word << " ";
-//            }
-//            out_file << "   " << val << std::endl;
-//        }
-//    }
-//    catch (const std::exception &e) {
-//        std::cerr << "Error writing in an out file: " << filename << std::endl;
-//        exit(6);
-//    }
-//
-//    out_file.close();
-//}
+void ngram_predictor::write_words_id(const std::string &filename) {
+    std::ofstream out_words_file(filename);
+    if (!out_words_file.is_open()) {
+        std::cerr << "Error: failed to open file for writing: " << filename << std::endl;
+        exit(4);
+    }
+
+    try {
+        for (auto const &[key, val]: m_words_dict) {
+            out_words_file << key << "   " << val << std::endl;
+        }
+    } catch (const std::exception &e) {
+        std::cerr << "Error writing in an out file: " << filename << std::endl;
+        exit(6);
+    }
+
+    out_words_file.close();
+}

@@ -74,7 +74,7 @@ Previous way (with only indexing threads) was applied to tbb parallel_pipeline.
 ##### Pipeline
 ```
 std::filesystem::path find_files(oneapi::tbb::flow_control& fc)  ==>
-std::pair<std::string, std::string> read_files_into_binaries(std::filesystem::path filename) ==>
+std::pair<std::string, std::string> read_file_into_binary(std::filesystem::path filename) ==>
 void count_ngrams(std::pair<std::string, std::string> file_content);
 ```
 Run with 16 live tokens
