@@ -57,7 +57,7 @@ void ngram_predictor::parallel_read_pipeline() {
     );
 }
 
-std::filesystem::path ngram_predictor::get_path_if_fit(const std::filesystem::directory_entry& entry) {
+auto ngram_predictor::get_path_if_fit(const std::filesystem::directory_entry& entry) -> std::filesystem::path {
     auto extension = entry.path().extension().string();
     if ((m_indexing_extensions.find(extension) != m_indexing_extensions.end() && entry.file_size() < m_max_file_size) ||
         (m_archives_extensions.find(extension) != m_archives_extensions.end()) ) {
@@ -66,7 +66,7 @@ std::filesystem::path ngram_predictor::get_path_if_fit(const std::filesystem::di
     return {};
 }
 
-std::pair<std::string, std::string> ngram_predictor::read_file_into_binary(const std::filesystem::path& filename) {
+auto ngram_predictor::read_file_into_binary(const std::filesystem::path& filename) -> std::pair<std::string, std::string> {
     if (filename.empty()) {
         return {};
     }
