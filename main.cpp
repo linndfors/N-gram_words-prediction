@@ -38,8 +38,8 @@ int main(int argc, char* argv[]) {
     std::cout << std::endl;
 
     ng.print_training_time();
-    ng.write_ngrams_freq("./ngrams.txt");
-    ng.write_words_id("./words.txt");
+//    ng.write_ngrams_freq("./ngrams.txt");
+//    ng.write_words_id("./words.txt");
     std::cout << std::endl;
     ng.print_predicting_time();
     ng.print_writing_words_time();
