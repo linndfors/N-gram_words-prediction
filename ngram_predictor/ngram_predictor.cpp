@@ -151,7 +151,6 @@ void ngram_predictor::print_training_time() const {
     std::cout << "  Reading files time: " << m_reading_time << " ms" << std::endl;
     std::cout << "  Counting ngrams time: " << m_total_training_time - m_writing_ngrams_to_db_time << " ms" << std::endl;
     std::cout << "  Writing ngrams to db time: " << m_writing_ngrams_to_db_time << " ms" << std::endl;
-    std::cout << std::endl;
 }
 
 void ngram_predictor::print_predicting_time() const {
