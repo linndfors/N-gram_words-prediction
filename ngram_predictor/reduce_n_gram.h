@@ -2,6 +2,7 @@
 #define NGRAM_REDUCE_N_GRAM_H
 
 #include <iostream>
+#include <vector>
 #include "ngram_predictor.hpp"
 #include <sqlite3.h>
 
