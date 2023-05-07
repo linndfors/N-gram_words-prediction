@@ -8,6 +8,7 @@
 #include <mutex>
 #include <boost/functional/hash.hpp>
 #include "oneapi/tbb/concurrent_hash_map.h"
+#include <cstdlib>
 
 
 // to allow std::unordered_map use std::vector<typename T> as a key
@@ -41,7 +42,9 @@ public:
     using ngram_dict_id_tbb = oneapi::tbb::concurrent_hash_map<ngram_id, uint32_t>;
     using words_dict_tbb = oneapi::tbb::concurrent_hash_map<word, id>;
 
+    explicit ngram_predictor(int n);
     ngram_predictor(std::string& path, int n);
+
 
     static void print_list(const std::vector<word>& words);
 

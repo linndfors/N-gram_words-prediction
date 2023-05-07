@@ -10,8 +10,10 @@
 
 void ngram_predictor::read_corpus() {
     auto start = get_current_time_fenced();
+//    auto start = get_current_time_fenced();
 
     parallel_read_pipeline();
+    write_words_to_db();
     write_ngrams_to_db();
 
     auto finish = get_current_time_fenced();

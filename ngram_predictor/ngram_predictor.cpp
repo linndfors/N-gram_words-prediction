@@ -33,30 +33,87 @@ void ngram_predictor::print_list(const std::vector<word>& words)  {
 }
 
 auto ngram_predictor::predict_id(const ngram_id& context) -> id {
-    if (m_words_dict.empty() || context.empty() || context.size() < m_n - 1){
+    if (context.empty() || context.size() < m_n - 1){
+//        std::cout<<"1: "<<context.empty()<<std::endl;
+//        std::cout<<"2: "<<(context.size() < m_n - 1)<<std::endl;
         std::cerr << "Error: no n-grams have been generated or the context is too short to generate a prediction" << std::endl;
         return -1;
     }
+    //////
+    sqlite3 *db;
+    char *zErrMsg = nullptr;
+    int rc;
 
-    id next_id = -1;
-    unsigned int max_count = 0;
-    for (const auto& [ngram, freq] : m_ngram_dict_id) {
+    rc = sqlite3_open("n_grams.db", &db);
 
-        if (std::equal(std::prev(context.end(), m_n - 1), context.end(),
-                       ngram.begin(), std::prev(ngram.end()))) {
-            if (freq > max_count) {
-                next_id = ngram.back();
-                max_count = freq;
+    if (rc) {
+        std::cerr<<"Problem with opening database"<<std::endl;
+        exit(6);
+    }
+    std::string sql = "SELECT * FROM n" + std::to_string(m_n) + "_grams_frequency WHERE ";
+    for (int i = 0; i < m_n-1; ++i) {
+        if (i > 0) {
+            sql += " AND ";
+        }
+        sql += "ID_WORD_" + std::to_string(i) + "= ?";
+    }
+//    std::cout<<"sql: "<<sql<<std::endl;
+    sqlite3_stmt *stmt;
+//    std::cout<<"sql: "<<sql<<std::endl;
+    rc = sqlite3_prepare_v2(db, sql.c_str(), -1, &stmt, nullptr);
+    int reduced_counter = m_n - 1;
+    int context_end = context.size();
+    for (int i = 0; i < m_n-1; ++i) {
+        sqlite3_bind_int(stmt, i + 1, context[context_end - reduced_counter]);
+//        std::cout<<"cx: "<<&context[0]<<std::endl;
+        reduced_counter --;
+    }
+//    std::cout<<"stmt: "<<stmt<<std::endl;
+    if (rc != SQLITE_OK) {
+        std::cerr << "Error preparing statement: " << sqlite3_errmsg(db) << std::endl;
+        sqlite3_close(db);
+        return 1;
+    }
+    int max_count = 0;
+    int max_freq_id;
+//    int count = 0;
+    std::srand(std::time(nullptr));
+    while (sqlite3_step(stmt) == SQLITE_ROW) {
+        int possible_word_id = sqlite3_column_int(stmt, m_n-1);
+//        std::cout<<"possible id: "<<possible_word_id<<std::endl;
+        int frequency = sqlite3_column_int(stmt, m_n);
+        if (frequency > max_count) {
+//            std::cout<<"max_freq: "<<frequency<<std::endl;
+//            std::cout<<"id: "<<possible_word_id<<std::endl;
+            max_count = frequency;
+            max_freq_id = possible_word_id;
+        }
+        if (frequency == max_count) {
+//            std::cout<<"I am here"<<std::endl;
+
+            double random_double = static_cast<double>(std::rand()) / (RAND_MAX + 1.0);
+//            std::cout<<random_double<<std::endl;
+            if (random_double > 0.5) {
+                max_count = frequency;
+                max_freq_id = possible_word_id;
             }
         }
+//        std::cout<<"cycle: "<<count<<std::endl;
+//        count++;
     }
-    return next_id;
+
+    sqlite3_finalize(stmt);
+    sqlite3_close(db);
+
+    return max_freq_id;
 }
 
 auto ngram_predictor::predict_words(int num_words, ngram_str& context) -> ngram_str {
     auto start = get_current_time_fenced();
 
-    if (m_words_dict.empty() || context.empty() || context.size() < m_n - 1){
+    if (context.empty() || context.size() < m_n - 1){
+        std::cout<<"1: "<<context.empty()<<std::endl;
+        std::cout<<"2: "<<m_n<<std::endl;
         std::cerr << "Error: no n-grams have been generated or the context is too short to generate a prediction" << std::endl;
         return {};
     }
@@ -64,10 +121,10 @@ auto ngram_predictor::predict_words(int num_words, ngram_str& context) -> ngram_
     for (auto& word: context) {
         word = boost::locale::fold_case(boost::locale::normalize(word));
     }
-
     auto context_ids = convert_to_ids(context, false);
     // predict new word based on n previous and add it to context
     for(int i = 0; i < num_words; ++i) {
+//        std::cout<<"HERE: "<<context_ids[0]<<std::endl;
         auto predicted_id = predict_id(context_ids);
         context_ids.push_back(predicted_id);
     }
@@ -79,7 +136,7 @@ auto ngram_predictor::predict_words(int num_words, ngram_str& context) -> ngram_
 
     auto end = get_current_time_fenced();
     m_predicting_time = to_ms(end - start);
-    write_words_to_db();
+
 
     return result;
 }
@@ -101,26 +158,61 @@ auto ngram_predictor::predict_words(int num_words, std::string& context) -> ngra
 
 auto ngram_predictor::convert_to_ids(const ngram_predictor::ngram_str &ngram, bool train) -> ngram_id {
     ngram_id ngram_ids;
-    words_dict_tbb::accessor a;
-    for (const auto& word : ngram) {
-        // if predicting and word does not exist in m_words_dict, add <unk> to the dictionary
-        if (!m_words_dict.find(a, word) && !train) {
-            ngram_ids.push_back(M_UNKNOWN_TAG_ID);
-            continue;
-        }
-
-        if (m_words_dict.find(a, word)) {
-            ngram_ids.push_back(a->second);
-        } else {
-            m_words_dict.insert(a, word);
-            {
-                std::lock_guard<std::mutex> lock(m_words_id_mutex);
-                a->second = ++m_last_word_id;
+    if (train) {
+        words_dict_tbb::accessor a;
+        for (const auto &word: ngram) {
+            // if predicting and word does not exist in m_words_dict, add <unk> to the dictionary
+            if (!m_words_dict.find(a, word) && !train) {
+                ngram_ids.push_back(M_UNKNOWN_TAG_ID);
+                continue;
             }
-            ngram_ids.push_back(a->second);
+
+            if (m_words_dict.find(a, word)) {
+                ngram_ids.push_back(a->second);
+            } else {
+                m_words_dict.insert(a, word);
+                {
+                    std::lock_guard<std::mutex> lock(m_words_id_mutex);
+                    a->second = ++m_last_word_id;
+                }
+                ngram_ids.push_back(a->second);
+            }
         }
+        return ngram_ids;
     }
-    return ngram_ids;
+    else {
+        sqlite3 *db;
+        char *error_message = 0;
+        int rc;
+        rc = sqlite3_open("n_grams.db", &db);
+        if (rc) {
+            std::cout << "Can't open database: " << sqlite3_errmsg(db) << std::endl;
+            exit(6);
+        }
+        for (const auto &word: ngram) {
+            std::string sql = "SELECT ID FROM all_words_id WHERE WORD = '" + word + "';";
+//            std::cout<<sql<<std::endl;
+            sqlite3_stmt *stmt;
+            rc = sqlite3_prepare_v2(db, sql.c_str(), -1, &stmt, nullptr);
+            if (rc != SQLITE_OK) {
+                std::cerr << "Error preparing statement: find id " << sqlite3_errmsg(db) << std::endl;
+                sqlite3_close(db);
+                exit(6);
+            }
+            rc = sqlite3_step(stmt);
+            if (rc == SQLITE_ROW) {
+                int id = sqlite3_column_int(stmt, 0);
+                ngram_ids.push_back(id);
+            }
+                // if predicting and word does not exist in m_words_dict, add <unk> to the dictionary
+            else {
+                ngram_ids.push_back(M_UNKNOWN_TAG_ID);
+            }
+            sqlite3_finalize(stmt);
+        }
+        sqlite3_close(db);
+        return ngram_ids;
+    }
 }
 
 auto ngram_predictor::convert_to_id(const ngram_predictor::word &word, bool train) -> id {
@@ -136,13 +228,46 @@ auto ngram_predictor::convert_to_words(const ngram_predictor::ngram_id &ngram) -
 }
 
 auto ngram_predictor::convert_to_word(const ngram_predictor::id &id) -> word {
-    for (const auto& [word, word_id] : m_words_dict) {
-        if (word_id == id) {
-            return word;
-        }
+    sqlite3 *db;
+    char *zErrMsg = nullptr;
+    int rc;
+//    std::cout<<"id: "<<id<<std::endl;
+    rc = sqlite3_open("n_grams.db", &db);
+
+    if (rc) {
+        std::cerr << "Problem with opening database" << std::endl;
+        exit(6);
     }
+    std::string sql = "SELECT WORD FROM all_words_id WHERE ID = " + std::to_string(id) + ";";
+    sqlite3_stmt *stmt;
+    rc = sqlite3_prepare_v2(db, sql.c_str(), -1, &stmt, nullptr);
+    if (rc != SQLITE_OK) {
+        std::cerr << "Error preparing statement: find word " << sqlite3_errmsg(db) << std::endl;
+        sqlite3_close(db);
+        exit(6);
+    }
+    rc = sqlite3_step(stmt);
+    if (rc == SQLITE_ROW) {
+        const char *result = reinterpret_cast<const char *>(sqlite3_column_text(stmt, 0));
+        std::string word(result);
+        return word;
+    } else if (rc == SQLITE_DONE) {
+        std::cerr << "No rows returned" << std::endl;
+    } else {
+        std::cerr << "Error executing statement: " << sqlite3_errmsg(db) << std::endl;
+    }
+
+    sqlite3_finalize(stmt);
+    sqlite3_close(db);
     return "";
 }
+//    for (const auto& [word, word_id] : m_words_dict) {
+//        if (word_id == id) {
+//            return word;
+//        }
+//    }
+//    return "";
+
 
 
 void ngram_predictor::print_training_time() const {
@@ -259,7 +384,7 @@ void ngram_predictor::write_words_to_db() {
     std::string sql = "DROP TABLE IF EXISTS all_words_id;";
     rc = sqlite3_exec(db, sql.c_str(), callback, nullptr, &zErrMsg);
     if (rc != SQLITE_OK) {
-        std::cerr<<"Problem with droping table"<<std::endl;
+        std::cerr<<"Problem with dropping table"<<std::endl;
         sqlite3_close(db);
         exit(6);
     }
@@ -294,7 +419,7 @@ void ngram_predictor::write_words_to_db() {
             rc = sqlite3_step(stmt);
             if (rc != SQLITE_DONE) {
                 std::cerr << "Problem with inserting: " << sqlite3_errmsg(db) << std::endl;
-                std::cout << "id: " << id << " word: " << word << std::endl;
+//                std::cout << "id: " << id << " word: " << word << std::endl;
                 sqlite3_finalize(stmt);
                 sqlite3_close(db);
                 exit(6);
@@ -316,4 +441,8 @@ void ngram_predictor::write_words_to_db() {
 
     auto end = get_current_time_fenced();
     m_writing_words_to_db_time = to_ms(end - start);
+}
+
+ngram_predictor::ngram_predictor(int n) :m_n(n){
+
 }
