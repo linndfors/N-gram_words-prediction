@@ -6,14 +6,6 @@
 #include <sqlite3.h>
 #include <string>
 
-ngram_predictor::ngram_predictor(std::string& path, int n) : m_n(n), m_path(path) {
-    check_if_path_is_dir(path);
-
-    boost::locale::generator gen;
-    std::locale loc = gen("en_US.UTF-8");
-    std::locale::global(loc);
-}
-
 ngram_predictor::ngram_predictor(int n) :m_n(n){
     boost::locale::generator gen;
     std::locale loc = gen("en_US.UTF-8");
@@ -282,14 +274,12 @@ void ngram_predictor::print_training_time() const {
     std::cout << "  Reading files time: " << m_reading_time << " ms" << std::endl;
     std::cout << "  Counting ngrams time: " << m_total_training_time - m_writing_ngrams_to_db_time << " ms" << std::endl;
     std::cout << "  Writing ngrams to db time: " << m_writing_ngrams_to_db_time << " ms" << std::endl;
+    std::cout << "  Writing words to db time: " << m_writing_words_to_db_time << " ms" << std::endl;
+
 }
 
 void ngram_predictor::print_predicting_time() const {
     std::cout << "Predicting time: " << m_predicting_time << " ms" << std::endl;
-}
-
-void ngram_predictor::print_writing_words_time() const {
-    std::cout << "Writing words to db time: " << m_writing_words_to_db_time << " ms" << std::endl;
 }
 
 

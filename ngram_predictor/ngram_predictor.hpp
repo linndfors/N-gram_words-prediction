@@ -43,16 +43,13 @@ public:
     using words_dict_tbb = oneapi::tbb::concurrent_hash_map<word, id>;
 
     explicit ngram_predictor(int n);
-    ngram_predictor(std::string& path, int n);
-
 
     static void print_list(const std::vector<word>& words);
 
-    void read_corpus();
+    void read_corpus(std::string& path);
 
     void print_training_time() const;
     void print_predicting_time() const;
-    void print_writing_words_time() const;
     void write_ngrams_freq(const std::string& filename);
     void write_words_id(const std::string& filename);
 
@@ -69,7 +66,6 @@ private:
     uint32_t m_last_word_id = 3;
     words_dict_tbb m_words_dict{{"<s>", M_START_TAG_ID}, {"</s>", M_END_TAG_ID}, {"<unk>", M_UNKNOWN_TAG_ID}};
 
-    std::string m_path;
     std::unordered_set<std::string> m_indexing_extensions{".txt"};
     std::unordered_set<std::string> m_archives_extensions{".zip"};
 
@@ -87,7 +83,7 @@ private:
     void count_ngrams_in_archive(const std::string &archive_content);
     void count_ngrams_in_str(std::string &file_content);
 
-    void parallel_read_pipeline();
+    void parallel_read_pipeline(const std::string& path);
     void write_ngrams_to_db();
     void write_words_to_db();
 

@@ -2,7 +2,6 @@
 // Created by user on 07.05.23.
 //
 
-#include "predict.h"
 #include <iostream>
 #include <string>
 #include <vector>
@@ -12,7 +11,7 @@
 using ngram_t = std::vector<std::string>;
 
 int main(int argc, char* argv[]) {
-    std::cout<<"predict"<<std::endl;
+    std::cout << "Predicting..." << std::endl;
     std::string path;
     int n, num_words_to_predict;
     ngram_t context;
@@ -22,7 +21,6 @@ int main(int argc, char* argv[]) {
     } else {
         n = std::stoi(argv[1]);
         num_words_to_predict = std::stoi(argv[2]);
-        std::cout<<argc<<std::endl;
         if (argc > 3) {
             // add <s> to start of context so its length is at least n-1
             for (int i = 0; i < (n - 1) - (argc - 3); ++i) {
@@ -35,20 +33,13 @@ int main(int argc, char* argv[]) {
         } else {
             context.resize(n-1, "<s>");
         }
-        for (auto elem: context) {
-            std::cout<<"elem: "<<elem<<std::endl;
-        }
     }
-    std::cout<<"before"<<std::endl;
+
     ngram_predictor ng = ngram_predictor(n);
-    std::cout<<"after"<<std::endl;
     ngram_predictor::print_list(ng.predict_words(num_words_to_predict, context));
     std::cout << std::endl;
 
-    ng.print_training_time();
-    std::cout << std::endl;
     ng.print_predicting_time();
-    ng.print_writing_words_time();
     std::cout << std::endl;
 
     struct rusage r_usage{};
