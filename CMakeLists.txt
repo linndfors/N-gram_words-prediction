@@ -1,13 +1,15 @@
 cmake_minimum_required(VERSION 3.23)
+project(ngram)
 
-set(PROJECT_NAME train_program)
+set(TRAIN_EXE_NAME train_program)
+set(PREDICT_EXE_NAME predict)
 
 set(EXECUTABLE_OUTPUT_PATH ../bin)
 
 set(CMAKE_CXX_STANDARD 20)
 
 # Train program
-add_executable(train_program
+add_executable(${TRAIN_EXE_NAME}
         ./train_dir/train.cpp
         ngram_predictor/ngram_predictor.cpp
         ngram_predictor/ngram_predictor.hpp
@@ -38,8 +40,7 @@ target_link_libraries(train_program TBB::tbb)
 
 
 # Predict program
-set(PROJECT_NAME1 predict)
-add_executable(predict
+add_executable(${PREDICT_EXE_NAME}
         ./predict_dir/predict.cpp
         ngram_predictor/ngram_predictor.cpp
         ngram_predictor/ngram_predictor.hpp
