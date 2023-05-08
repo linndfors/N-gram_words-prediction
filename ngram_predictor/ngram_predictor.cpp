@@ -14,6 +14,12 @@ ngram_predictor::ngram_predictor(std::string& path, int n) : m_n(n), m_path(path
     std::locale::global(loc);
 }
 
+ngram_predictor::ngram_predictor(int n) :m_n(n){
+    boost::locale::generator gen;
+    std::locale loc = gen("en_US.UTF-8");
+    std::locale::global(loc);
+}
+
 void ngram_predictor::check_if_path_is_dir(std::string& filename) {
     if (!std::filesystem::exists(filename)) {
         std::cerr << "Error: input directory " << filename << " does not exist." << std::endl;
@@ -441,8 +447,4 @@ void ngram_predictor::write_words_to_db() {
 
     auto end = get_current_time_fenced();
     m_writing_words_to_db_time = to_ms(end - start);
-}
-
-ngram_predictor::ngram_predictor(int n) :m_n(n){
-
 }
