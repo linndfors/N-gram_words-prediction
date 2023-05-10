@@ -57,6 +57,8 @@ public:
     auto predict_words(int num_words, std::string& context) -> ngram_str;
 private:
     int m_n;
+    const std::string db_path_str = "./cpp_program/ngrams.db";
+    const char* db_path = db_path_str.c_str();
     ngram_dict_id_tbb m_ngram_dict_id;
 
     uint32_t M_START_TAG_ID = 1;

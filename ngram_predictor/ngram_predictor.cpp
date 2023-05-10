@@ -42,7 +42,7 @@ auto ngram_predictor::predict_id(const ngram_id& context) -> id {
     char *zErrMsg = nullptr;
     int rc;
 
-    rc = sqlite3_open("n_grams.db", &db);
+    rc = sqlite3_open(db_path, &db);
 
     if (rc) {
         std::cerr<<"Problem with opening database"<<std::endl;
@@ -182,7 +182,7 @@ auto ngram_predictor::convert_to_ids(const ngram_predictor::ngram_str &ngram, bo
         sqlite3 *db;
         char *error_message = 0;
         int rc;
-        rc = sqlite3_open("n_grams.db", &db);
+        rc = sqlite3_open(db_path, &db);
         if (rc) {
             std::cout << "Can't open database: " << sqlite3_errmsg(db) << std::endl;
             exit(6);
@@ -230,7 +230,7 @@ auto ngram_predictor::convert_to_word(const ngram_predictor::id &id) -> word {
     char *zErrMsg = nullptr;
     int rc;
 //    std::cout<<"id: "<<id<<std::endl;
-    rc = sqlite3_open("n_grams.db", &db);
+    rc = sqlite3_open(db_path, &db);
 
     if (rc) {
         std::cerr << "Problem with opening database" << std::endl;
@@ -290,7 +290,7 @@ void ngram_predictor::write_ngrams_to_db() {
     char *zErrMsg = nullptr;
     int rc;
 
-    rc = sqlite3_open("n_grams.db", &db);
+    rc = sqlite3_open(db_path, &db);
 
     if (rc) {
         std::cerr<<"Problem with opening database"<<std::endl;
@@ -372,7 +372,7 @@ void ngram_predictor::write_words_to_db() {
     char *zErrMsg = nullptr;
     int rc;
 
-    rc = sqlite3_open("n_grams.db", &db);
+    rc = sqlite3_open(db_path, &db);
     if (rc) {
         std::cerr<<"Problem with open database"<<std::endl;
         exit(6);
