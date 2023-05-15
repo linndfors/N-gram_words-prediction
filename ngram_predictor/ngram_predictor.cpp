@@ -32,12 +32,9 @@ void ngram_predictor::print_list(const std::vector<word>& words)  {
 
 auto ngram_predictor::predict_id(const ngram_id& context) -> id {
     if (context.empty() || context.size() < m_n - 1){
-//        std::cout<<"1: "<<context.empty()<<std::endl;
-//        std::cout<<"2: "<<(context.size() < m_n - 1)<<std::endl;
         std::cerr << "Error: no n-grams have been generated or the context is too short to generate a prediction" << std::endl;
         return -1;
     }
-/////
     sqlite3* db;
     char* zErrMsg = nullptr;
     int rc;
@@ -105,7 +102,6 @@ auto ngram_predictor::predict_words(int num_words, ngram_str& context) -> ngram_
     auto context_ids = convert_to_ids(context, false);
     // predict new word based on n previous and add it to context
     for(int i = 0; i < num_words; ++i) {
-//        std::cout<<"HERE: "<<context_ids[0]<<std::endl;
         auto predicted_id = predict_id(context_ids);
         context_ids.push_back(predicted_id);
     }
@@ -117,8 +113,6 @@ auto ngram_predictor::predict_words(int num_words, ngram_str& context) -> ngram_
 
     auto end = get_current_time_fenced();
     m_predicting_time = to_ms(end - start);
-
-
     return result;
 }
 
@@ -128,12 +122,6 @@ auto ngram_predictor::convert_to_ids(const ngram_predictor::ngram_str &ngram, bo
     if (train) {
         words_dict_tbb::accessor a;
         for (const auto &word: ngram) {
-            // if predicting and word does not exist in m_words_dict, add <unk> to the dictionary
-            if (!m_words_dict.find(a, word) && !train) {
-                ngram_ids.push_back(M_UNKNOWN_TAG_ID);
-                continue;
-            }
-
             if (m_words_dict.find(a, word)) {
                 ngram_ids.push_back(a->second);
             } else {
@@ -384,7 +372,6 @@ void ngram_predictor::write_words_to_db() {
             rc = sqlite3_step(stmt);
             if (rc != SQLITE_DONE) {
                 std::cerr << "Problem with inserting: " << sqlite3_errmsg(db) << std::endl;
-//                std::cout << "id: " << id << " word: " << word << std::endl;
                 sqlite3_finalize(stmt);
                 sqlite3_close(db);
                 exit(6);

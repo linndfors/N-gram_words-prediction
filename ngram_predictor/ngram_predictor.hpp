@@ -9,6 +9,7 @@
 #include <boost/functional/hash.hpp>
 #include "oneapi/tbb/concurrent_hash_map.h"
 #include <cstdlib>
+#include <iostream>
 
 
 // to allow std::unordered_map use std::vector<typename T> as a key
