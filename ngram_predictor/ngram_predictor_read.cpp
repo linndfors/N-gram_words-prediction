@@ -1,5 +1,4 @@
 #include <fstream>
-#include <iostream>
 #include <boost/locale.hpp>
 #include <archive.h>
 #include <archive_entry.h>
@@ -8,18 +7,21 @@
 #include "ngram_predictor.hpp"
 
 
-void ngram_predictor::read_corpus() {
+void ngram_predictor::read_corpus(std::string& path) {
+    check_if_path_is_dir(path);
+
     auto start = get_current_time_fenced();
 
-    parallel_read_pipeline();
+    parallel_read_pipeline(path);
+    write_words_to_db();
     write_ngrams_to_db();
 
     auto finish = get_current_time_fenced();
     m_total_training_time = to_ms(finish - start);
 }
 
-void ngram_predictor::parallel_read_pipeline() {
-    auto path_iter = std::filesystem::recursive_directory_iterator(m_path);
+void ngram_predictor::parallel_read_pipeline(const std::string &path) {
+    auto path_iter = std::filesystem::recursive_directory_iterator(path);
     auto path_end = std::filesystem::end(path_iter);
 
     oneapi::tbb::parallel_pipeline(m_max_live_tokens,
