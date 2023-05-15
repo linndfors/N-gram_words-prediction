@@ -27,7 +27,6 @@ static int callback(void *NotUsed, int argc, char **argv, char **azColName) {
         auto temp_out = argv[i] ? argv[i] : "NULL";
         std::cout << azColName[i] << " = " << temp_out << std::endl;
     }
-    printf("\n");
     return 0;
 }
 
@@ -38,8 +37,6 @@ public:
     using id = uint32_t;
     using ngram_id = std::vector<id>;
     using ngram_str = std::vector<word>;
-    using ngram_dict_t = std::unordered_map<word, id>;
-    using ngram_dict_id_t = std::unordered_map<ngram_id, uint32_t>;
     // tbb
     using ngram_dict_id_tbb = oneapi::tbb::concurrent_hash_map<ngram_id, uint32_t>;
     using words_dict_tbb = oneapi::tbb::concurrent_hash_map<word, id>;

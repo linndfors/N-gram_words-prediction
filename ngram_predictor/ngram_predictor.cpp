@@ -146,7 +146,6 @@ auto ngram_predictor::convert_to_ids(const ngram_predictor::ngram_str &ngram, bo
         }
         for (const auto &word: ngram) {
             std::string sql = "SELECT ID FROM all_words_id WHERE WORD = '" + word + "';";
-//            std::cout<<sql<<std::endl;
             sqlite3_stmt *stmt;
             rc = sqlite3_prepare_v2(db, sql.c_str(), -1, &stmt, nullptr);
             if (rc != SQLITE_OK) {
@@ -186,7 +185,6 @@ auto ngram_predictor::convert_to_word(const ngram_predictor::id &id) -> word {
     sqlite3 *db;
     char *zErrMsg = nullptr;
     int rc;
-//    std::cout<<"id: "<<id<<std::endl;
     rc = sqlite3_open(db_path, &db);
 
     if (rc) {
@@ -216,13 +214,6 @@ auto ngram_predictor::convert_to_word(const ngram_predictor::id &id) -> word {
     sqlite3_close(db);
     return "";
 }
-//    for (const auto& [word, word_id] : m_words_dict) {
-//        if (word_id == id) {
-//            return word;
-//        }
-//    }
-//    return "";
-
 
 
 void ngram_predictor::print_training_time() const {
