@@ -46,7 +46,7 @@ add_executable(${PREDICT_EXE_NAME}
         ngram_predictor/ngram_predictor.hpp
         ngram_predictor/ngram_predictor_read.cpp
         ngram_predictor/time_measurements.hpp
-        )
+        db_manager/db_manager.cpp db_manager/db_manager.hpp)
 
 target_include_directories(predict PRIVATE ngram_predictor)
 target_include_directories(predict PRIVATE src)

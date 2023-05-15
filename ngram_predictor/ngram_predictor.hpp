@@ -22,8 +22,9 @@ struct std::hash<std::vector<T>> {
 
 static int callback(void *NotUsed, int argc, char **argv, char **azColName) {
     int i;
-    for(i = 0; i<argc; i++) {
-        printf("%s = %s\n", azColName[i], argv[i] ? argv[i] : "NULL");
+    for(i = 0; i < argc; i++) {
+        auto temp_out = argv[i] ? argv[i] : "NULL";
+        std::cout << azColName[i] << " = " << temp_out << std::endl;
     }
     printf("\n");
     return 0;
@@ -50,11 +51,12 @@ public:
 
     void print_training_time() const;
     void print_predicting_time() const;
-    void write_ngrams_freq(const std::string& filename);
-    void write_words_id(const std::string& filename);
 
     auto predict_words(int num_words, ngram_str& context) -> ngram_str;
-    auto predict_words(int num_words, std::string& context) -> ngram_str;
+
+    // debug only
+    void write_ngrams_freq(const std::string& filename);
+    void write_words_id(const std::string& filename);
 private:
     int m_n;
     const std::string db_path_str = "./cpp_program/ngrams.db";

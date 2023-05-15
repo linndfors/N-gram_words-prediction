@@ -122,20 +122,6 @@ auto ngram_predictor::predict_words(int num_words, ngram_str& context) -> ngram_
     return result;
 }
 
-auto ngram_predictor::predict_words(int num_words, std::string& context) -> ngram_str {
-    namespace bl = boost::locale;
-    auto contents = bl::fold_case(bl::normalize(context));
-    bl::boundary::ssegment_index words_index(bl::boundary::word, contents.begin(), contents.end());
-    words_index.rule(bl::boundary::word_letters);
-
-    ngram_str vector_of_words;
-    for (const auto& word: words_index) {
-        vector_of_words.emplace_back(word);
-    }
-
-    return predict_words(num_words, vector_of_words);
-}
-
 
 auto ngram_predictor::convert_to_ids(const ngram_predictor::ngram_str &ngram, bool train) -> ngram_id {
     ngram_id ngram_ids;
