@@ -37,72 +37,55 @@ auto ngram_predictor::predict_id(const ngram_id& context) -> id {
         std::cerr << "Error: no n-grams have been generated or the context is too short to generate a prediction" << std::endl;
         return -1;
     }
-    //////
-    sqlite3 *db;
-    char *zErrMsg = nullptr;
+/////
+    sqlite3* db;
+    char* zErrMsg = nullptr;
     int rc;
 
     rc = sqlite3_open("n_grams.db", &db);
 
     if (rc) {
-        std::cerr<<"Problem with opening database"<<std::endl;
+        std::cerr << "Problem with opening database: " << sqlite3_errmsg(db) << std::endl;
         exit(6);
     }
-    std::string sql = "SELECT * FROM n" + std::to_string(m_n) + "_grams_frequency WHERE ";
+
+    std::string sql = "SELECT ID_WORD_" + std::to_string(m_n-1) + " FROM n" + std::to_string(m_n) + "_grams_frequency WHERE ";
     for (int i = 0; i < m_n-1; ++i) {
         if (i > 0) {
             sql += " AND ";
         }
         sql += "ID_WORD_" + std::to_string(i) + "= ?";
     }
-//    std::cout<<"sql: "<<sql<<std::endl;
+    sql += " ORDER BY FREQUENCY DESC LIMIT 3;";
     sqlite3_stmt *stmt;
-//    std::cout<<"sql: "<<sql<<std::endl;
     rc = sqlite3_prepare_v2(db, sql.c_str(), -1, &stmt, nullptr);
     int reduced_counter = m_n - 1;
     int context_end = context.size();
     for (int i = 0; i < m_n-1; ++i) {
         sqlite3_bind_int(stmt, i + 1, context[context_end - reduced_counter]);
-//        std::cout<<"cx: "<<&context[0]<<std::endl;
         reduced_counter --;
     }
-//    std::cout<<"stmt: "<<stmt<<std::endl;
     if (rc != SQLITE_OK) {
         std::cerr << "Error preparing statement: " << sqlite3_errmsg(db) << std::endl;
         sqlite3_close(db);
         return 1;
     }
-    int max_count = 0;
-    int max_freq_id;
-//    int count = 0;
+    int max_freq_id = 0;
     std::srand(std::time(nullptr));
     while (sqlite3_step(stmt) == SQLITE_ROW) {
-        int possible_word_id = sqlite3_column_int(stmt, m_n-1);
-//        std::cout<<"possible id: "<<possible_word_id<<std::endl;
-        int frequency = sqlite3_column_int(stmt, m_n);
-        if (frequency > max_count) {
-//            std::cout<<"max_freq: "<<frequency<<std::endl;
-//            std::cout<<"id: "<<possible_word_id<<std::endl;
-            max_count = frequency;
+        int possible_word_id = sqlite3_column_int(stmt, 0);
+        if (max_freq_id == 0) {
             max_freq_id = possible_word_id;
         }
-        if (frequency == max_count) {
-//            std::cout<<"I am here"<<std::endl;
-
+        else {
             double random_double = static_cast<double>(std::rand()) / (RAND_MAX + 1.0);
-//            std::cout<<random_double<<std::endl;
             if (random_double > 0.5) {
-                max_count = frequency;
                 max_freq_id = possible_word_id;
             }
         }
-//        std::cout<<"cycle: "<<count<<std::endl;
-//        count++;
     }
-
     sqlite3_finalize(stmt);
     sqlite3_close(db);
-
     return max_freq_id;
 }
 

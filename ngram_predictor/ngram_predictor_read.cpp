@@ -5,7 +5,7 @@
 #include "time_measurements.hpp"
 #include "oneapi/tbb/parallel_pipeline.h"
 #include "ngram_predictor.hpp"
-
+#include <iostream>
 
 void ngram_predictor::read_corpus(std::string& path) {
     check_if_path_is_dir(path);
