@@ -1,4 +1,4 @@
-#include "reduce_n_gram.h"
+#include "ngram_predictor/reduce_n_gram.h"
 
 void reduce(std::string const& table_name, int n) {
     sqlite3 *db;

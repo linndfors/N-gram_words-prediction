@@ -1,8 +1,5 @@
-#ifndef NGRAM_SMOOTHING_H
-#define NGRAM_SMOOTHING_H
+#pragma once
+#include "ngram_predictor/ngram_predictor.hpp"
 
-#include "ngram_predictor.hpp"
-
-double smoothing(ngram::ngram_dict_t ngrams_dict, ngram::ngram_t ngram, double d);
-
-#endif //NGRAM_SMOOTHING_H
+//double smoothing(ngram::ngram_dict_t ngrams_dict, ngram::ngram_t ngram, double d);
+double smoothing(ngram_predictor::ngram_id& ngram, double d);

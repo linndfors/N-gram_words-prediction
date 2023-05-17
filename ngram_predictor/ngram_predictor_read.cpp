@@ -1,13 +1,15 @@
+#include "ngram_predictor/ngram_predictor.hpp"
+#include "ngram_predictor/time_measurements.hpp"
+
 #include <fstream>
 #include <boost/locale.hpp>
 #include <archive.h>
 #include <archive_entry.h>
-#include "time_measurements.hpp"
-#include "oneapi/tbb/parallel_pipeline.h"
-#include "ngram_predictor.hpp"
+#include <oneapi/tbb/parallel_pipeline.h>
 #include <iostream>
 
-void ngram_predictor::read_corpus(std::string& path) {
+void ngram_predictor::read_corpus(const std::string& path)
+{
     check_if_path_is_dir(path);
 
     auto start = get_current_time_fenced();
@@ -24,7 +26,7 @@ void ngram_predictor::parallel_read_pipeline(const std::string &path) {
     auto path_iter = std::filesystem::recursive_directory_iterator(path);
     auto path_end = std::filesystem::end(path_iter);
 
-    oneapi::tbb::parallel_pipeline(m_max_live_tokens,
+    oneapi::tbb::parallel_pipeline(MAX_LIVE_TOKENS,
                    oneapi::tbb::make_filter<void, std::filesystem::path>(
                    oneapi::tbb::filter_mode::serial_out_of_order,
                    [&](oneapi::tbb::flow_control& fc) -> std::filesystem::path {
@@ -62,7 +64,7 @@ void ngram_predictor::parallel_read_pipeline(const std::string &path) {
 
 auto ngram_predictor::get_path_if_fit(const std::filesystem::directory_entry& entry) -> std::filesystem::path {
     auto extension = entry.path().extension().string();
-    if ((m_indexing_extensions.find(extension) != m_indexing_extensions.end() && entry.file_size() < m_max_file_size) ||
+    if ((m_indexing_extensions.find(extension) != m_indexing_extensions.end() && entry.file_size() < MAX_FILE_SIZE) ||
         (m_archives_extensions.find(extension) != m_archives_extensions.end()) ) {
         return entry.path();
     }
@@ -117,7 +119,7 @@ void ngram_predictor::count_ngrams_in_archive(const std::string &archive_content
             continue;
         }
         size_t size = archive_entry_size(entry);
-        if (size <= 0 || size > m_max_file_size) {
+        if (size <= 0 || size > MAX_FILE_SIZE) {
             continue;
         }
         std::string contents;
@@ -153,7 +155,7 @@ void ngram_predictor::count_ngrams_in_str(std::string &file_content) {
     }
 
     if (temp_ngram.size() < m_n) {
-        temp_ngram.insert(temp_ngram.begin(), M_START_TAG_ID, m_n - temp_ngram.size());
+        temp_ngram.insert(temp_ngram.begin(), START_TAG_ID, m_n - temp_ngram.size());
         m_ngram_dict_id.insert(a, temp_ngram);
         ++a->second;
     }

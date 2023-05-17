@@ -1,18 +1,34 @@
-#include "ngram_predictor.hpp"
-#include "time_measurements.hpp"
-#include <iostream>
-#include <boost/locale.hpp>
-#include <cstdlib>
-#include <sqlite3.h>
-#include <string>
+#include "ngram_predictor/ngram_predictor.hpp"
+#include "ngram_predictor/time_measurements.hpp"
 
-ngram_predictor::ngram_predictor(int n) :m_n(n){
+#include <boost/locale.hpp>
+#include <sqlite3.h>
+
+#include <iostream>
+#include <cstdlib>
+#include <string>
+#include "ngram_predictor/smoothing.h"
+
+static int callback(void *NotUsed, int argc, char **argv, char **azColName) 
+{
+    int i;
+    for(i = 0; i < argc; i++) {
+        auto temp_out = argv[i] ? argv[i] : "NULL";
+        std::cout << azColName[i] << " = " << temp_out << std::endl;
+    }
+    return 0;
+}
+
+ngram_predictor::ngram_predictor(int n) 
+    : m_n{n}
+    , m_words_dict{{"<s>", START_TAG_ID}, {"</s>", END_TAG_ID}, {"<unk>", UNKNOWN_TAG_ID}}
+{
     boost::locale::generator gen;
     std::locale loc = gen("en_US.UTF-8");
     std::locale::global(loc);
 }
 
-void ngram_predictor::check_if_path_is_dir(std::string& filename) {
+void ngram_predictor::check_if_path_is_dir(const std::string& filename) {
     if (!std::filesystem::exists(filename)) {
         std::cerr << "Error: input directory " << filename << " does not exist." << std::endl;
         exit(26);
@@ -23,14 +39,8 @@ void ngram_predictor::check_if_path_is_dir(std::string& filename) {
     }
 }
 
-void ngram_predictor::print_list(const std::vector<word>& words)  {
-    for (const auto& word : words) {
-        std::cout << word << " ";
-    }
-    std::cout<<"\n";
-}
-
-auto ngram_predictor::predict_id(const ngram_id& context) -> id {
+auto ngram_predictor::predict_id(const ngram_id& context) -> id 
+{
     if (context.empty() || context.size() < m_n - 1){
         std::cerr << "Error: no n-grams have been generated or the context is too short to generate a prediction" << std::endl;
         return -1;
@@ -39,7 +49,7 @@ auto ngram_predictor::predict_id(const ngram_id& context) -> id {
     char* zErrMsg = nullptr;
     int rc;
 
-    rc = sqlite3_open(db_path, &db);
+    rc = sqlite3_open(DB_PATH, &db);
 
     if (rc) {
         std::cerr << "Problem with opening database: " << sqlite3_errmsg(db) << std::endl;
@@ -86,7 +96,8 @@ auto ngram_predictor::predict_id(const ngram_id& context) -> id {
     return max_freq_id;
 }
 
-auto ngram_predictor::predict_words(int num_words, ngram_str& context) -> ngram_str {
+auto ngram_predictor::predict_words(int num_words, ngrams& context) -> ngrams 
+{
     auto start = get_current_time_fenced();
 
     if (context.empty() || context.size() < m_n - 1){
@@ -117,7 +128,8 @@ auto ngram_predictor::predict_words(int num_words, ngram_str& context) -> ngram_
 }
 
 
-auto ngram_predictor::convert_to_ids(const ngram_predictor::ngram_str &ngram, bool train) -> ngram_id {
+auto ngram_predictor::convert_to_ids(const ngram_predictor::ngrams &ngram, bool train) -> ngram_id 
+{
     ngram_id ngram_ids;
     if (train) {
         words_dict_tbb::accessor a;
@@ -139,7 +151,7 @@ auto ngram_predictor::convert_to_ids(const ngram_predictor::ngram_str &ngram, bo
         sqlite3 *db;
         char *error_message = 0;
         int rc;
-        rc = sqlite3_open(db_path, &db);
+        rc = sqlite3_open(DB_PATH, &db);
         if (rc) {
             std::cout << "Can't open database: " << sqlite3_errmsg(db) << std::endl;
             exit(6);
@@ -160,7 +172,7 @@ auto ngram_predictor::convert_to_ids(const ngram_predictor::ngram_str &ngram, bo
             }
                 // if predicting and word does not exist in m_words_dict, add <unk> to the dictionary
             else {
-                ngram_ids.push_back(M_UNKNOWN_TAG_ID);
+                ngram_ids.push_back(UNKNOWN_TAG_ID);
             }
             sqlite3_finalize(stmt);
         }
@@ -173,19 +185,21 @@ auto ngram_predictor::convert_to_id(const ngram_predictor::word &word, bool trai
     return convert_to_ids({word}, train).front();
 }
 
-auto ngram_predictor::convert_to_words(const ngram_predictor::ngram_id &ngram) -> ngram_str {
-    ngram_str ngram_words;
+auto ngram_predictor::convert_to_words(const ngram_predictor::ngram_id &ngram) -> ngrams 
+{
+    ngrams ngram_words;
     for (const auto& id : ngram) {
         ngram_words.push_back(convert_to_word(id));
     }
     return ngram_words;
 }
 
-auto ngram_predictor::convert_to_word(const ngram_predictor::id &id) -> word {
+auto ngram_predictor::convert_to_word(const ngram_predictor::id &id) -> word 
+{
     sqlite3 *db;
     char *zErrMsg = nullptr;
     int rc;
-    rc = sqlite3_open(db_path, &db);
+    rc = sqlite3_open(DB_PATH, &db);
 
     if (rc) {
         std::cerr << "Problem with opening database" << std::endl;
@@ -216,29 +230,30 @@ auto ngram_predictor::convert_to_word(const ngram_predictor::id &id) -> word {
 }
 
 
-void ngram_predictor::print_training_time() const {
+void ngram_predictor::print_training_time() const 
+{
     std::cout << "Total training time: " << m_total_training_time << " ms" << std::endl;
     std::cout << "  Finding files time: " << m_finding_time << " ms" << std::endl;
     std::cout << "  Reading files time: " << m_reading_time << " ms" << std::endl;
     std::cout << "  Counting ngrams time: " << m_total_training_time - m_writing_ngrams_to_db_time << " ms" << std::endl;
     std::cout << "  Writing ngrams to db time: " << m_writing_ngrams_to_db_time << " ms" << std::endl;
     std::cout << "  Writing words to db time: " << m_writing_words_to_db_time << " ms" << std::endl;
-
 }
 
-void ngram_predictor::print_predicting_time() const {
+void ngram_predictor::print_predicting_time() const 
+{
     std::cout << "Predicting time: " << m_predicting_time << " ms" << std::endl;
 }
 
-
-void ngram_predictor::write_ngrams_to_db() {
+void ngram_predictor::write_ngrams_to_db() 
+{
     auto start = get_current_time_fenced();
 
     sqlite3 *db;
     char *zErrMsg = nullptr;
     int rc;
 
-    rc = sqlite3_open(db_path, &db);
+    rc = sqlite3_open(DB_PATH, &db);
 
     if (rc) {
         std::cerr<<"Problem with opening database"<<std::endl;
@@ -313,14 +328,15 @@ void ngram_predictor::write_ngrams_to_db() {
     m_writing_ngrams_to_db_time = to_ms(end - start);
 }
 
-void ngram_predictor::write_words_to_db() {
+void ngram_predictor::write_words_to_db() 
+{
     auto start = get_current_time_fenced();
 
     sqlite3 *db;
     char *zErrMsg = nullptr;
     int rc;
 
-    rc = sqlite3_open(db_path, &db);
+    rc = sqlite3_open(DB_PATH, &db);
     if (rc) {
         std::cerr<<"Problem with open database"<<std::endl;
         exit(6);

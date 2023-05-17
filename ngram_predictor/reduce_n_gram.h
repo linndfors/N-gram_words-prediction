@@ -1,10 +1,5 @@
-#ifndef NGRAM_REDUCE_N_GRAM_H
-#define NGRAM_REDUCE_N_GRAM_H
+#pragma once
 
-#include <iostream>
-#include "ngram_predictor.hpp"
-#include <sqlite3.h>
+#include <string>
 
 void reduce(std::string const& table_name, int n);
-
-#endif //NGRAM_REDUCE_N_GRAM_H
