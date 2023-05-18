@@ -1,23 +1,10 @@
 #include "ngram_predictor/ngram_predictor.hpp"
 #include "ngram_predictor/time_measurements.hpp"
 
-#include <boost/locale.hpp>
-#include <sqlite3.h>
-
-#include <iostream>
-#include <cstdlib>
-#include <string>
 #include "ngram_predictor/smoothing.h"
+#include "ngram_predictor/reduce_n_gram.h"
 
-static int callback(void *NotUsed, int argc, char **argv, char **azColName) 
-{
-    int i;
-    for(i = 0; i < argc; i++) {
-        auto temp_out = argv[i] ? argv[i] : "NULL";
-        std::cout << azColName[i] << " = " << temp_out << std::endl;
-    }
-    return 0;
-}
+
 
 ngram_predictor::ngram_predictor(int n) 
     : m_n{n}
@@ -39,6 +26,55 @@ void ngram_predictor::check_if_path_is_dir(const std::string& filename) {
     }
 }
 
+auto ngram_predictor::find_word(sqlite3* db, const int n, const ngram_id& context) {
+    int rc;
+    std::string sql = "SELECT * FROM n" + std::to_string(n) + "_grams_frequency WHERE ";
+    for (int i = n-2; i >= 0; i--) {
+        if (i < n-2) {
+            sql += " AND ";
+        }
+        sql += "ID_WORD_" + std::to_string(i) + "= ?";
+    }
+    std::cout<<"sql: "<<sql<<std::endl;
+    sqlite3_stmt *stmt;
+    rc = sqlite3_prepare_v2(db, sql.c_str(), -1, &stmt, nullptr);
+    int reduced_counter = n - 1;
+    int context_end = context.size();
+    for (int i = n - 2; i >= 0; i--) {
+        std::cout<<"id: "<<context[context_end - reduced_counter]<<std::endl;
+        sqlite3_bind_int(stmt, i + 1, context[context_end - reduced_counter]);
+        reduced_counter --;
+    }
+    if (rc != SQLITE_OK) {
+        std::cerr << "Error preparing statement: " << sqlite3_errmsg(db) << std::endl;
+        sqlite3_close(db);
+        return 1;
+    }
+    int possible_word_id = 0;
+    double prob = -INFINITY;
+    std::srand(std::time(nullptr));
+    while (sqlite3_step(stmt) == SQLITE_ROW) {
+//        std::cout<<"Here"<<std::endl;
+        ngram_id current_ngram;
+        int last_word_id = 0;
+        for (int i = 0; i < n; ++i) {
+            int word_id = sqlite3_column_int(stmt, i);
+            if (i == n - 1) {
+                last_word_id = word_id;
+            }
+            current_ngram.push_back(word_id);
+        }
+        double id_prob = smoothing(current_ngram, 0.5);
+//        std::cout<<"prob: "<<prob<<std::endl;
+        if (id_prob > prob) {
+            prob = id_prob;
+            possible_word_id = last_word_id;
+        }
+    }
+    sqlite3_finalize(stmt);
+    return possible_word_id;
+}
+
 auto ngram_predictor::predict_id(const ngram_id& context) -> id 
 {
     if (context.empty() || context.size() < m_n - 1){
@@ -56,44 +92,32 @@ auto ngram_predictor::predict_id(const ngram_id& context) -> id
         exit(6);
     }
 
-    std::string sql = "SELECT ID_WORD_" + std::to_string(m_n-1) + " FROM n" + std::to_string(m_n) + "_grams_frequency WHERE ";
-    for (int i = 0; i < m_n-1; ++i) {
-        if (i > 0) {
-            sql += " AND ";
-        }
-        sql += "ID_WORD_" + std::to_string(i) + "= ?";
+
+    int res_word_id = 0;
+    int current_n = m_n;
+    res_word_id = find_word(db, current_n, context);
+    std::cout<<"res_word_id: "<<res_word_id<<std::endl;
+    while (res_word_id == 0) {
+        std::string current_table_name = "n" + std::to_string(current_n) + "_grams_frequency";
+//        reduce(current_table_name, current_n);
+        current_n--;
+//        std::cout<<"current n: "<<current_n<<std::endl;
+        res_word_id = find_word(db, current_n, context);
     }
-    sql += " ORDER BY FREQUENCY DESC LIMIT 3;";
-    sqlite3_stmt *stmt;
-    rc = sqlite3_prepare_v2(db, sql.c_str(), -1, &stmt, nullptr);
-    int reduced_counter = m_n - 1;
-    int context_end = context.size();
-    for (int i = 0; i < m_n-1; ++i) {
-        sqlite3_bind_int(stmt, i + 1, context[context_end - reduced_counter]);
-        reduced_counter --;
-    }
-    if (rc != SQLITE_OK) {
-        std::cerr << "Error preparing statement: " << sqlite3_errmsg(db) << std::endl;
-        sqlite3_close(db);
-        return 1;
-    }
-    int max_freq_id = 0;
-    std::srand(std::time(nullptr));
-    while (sqlite3_step(stmt) == SQLITE_ROW) {
-        int possible_word_id = sqlite3_column_int(stmt, 0);
-        if (max_freq_id == 0) {
-            max_freq_id = possible_word_id;
-        }
-        else {
-            double random_double = static_cast<double>(std::rand()) / (RAND_MAX + 1.0);
-            if (random_double > 0.5) {
-                max_freq_id = possible_word_id;
-            }
-        }
-    }
-    sqlite3_finalize(stmt);
+
+//        if (max_freq_id == 0) {
+//            max_freq_id = possible_word_id;
+//        }
+//        else {
+//            double random_double = static_cast<double>(std::rand()) / (RAND_MAX + 1.0);
+//            if (random_double > 0.5) {
+//                max_freq_id = possible_word_id;
+//            }
+//        }
+//    }
+
     sqlite3_close(db);
-    return max_freq_id;
+    return res_word_id;
 }
 
 auto ngram_predictor::predict_words(int num_words, ngrams& context) -> ngrams 
@@ -401,3 +425,4 @@ void ngram_predictor::write_words_to_db()
     auto end = get_current_time_fenced();
     m_writing_words_to_db_time = to_ms(end - start);
 }
+

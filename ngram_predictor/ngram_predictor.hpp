@@ -1,6 +1,11 @@
 #ifndef NGRAM_NGRAM_PREDICTOR_HPP
 #define NGRAM_NGRAM_PREDICTOR_HPP
 
+#include <boost/locale.hpp>
+#include <sqlite3.h>
+#include <iostream>
+#include <cstdlib>
+#include <string>
 #include <string>
 #include <vector>
 #include <unordered_set>
@@ -18,6 +23,16 @@ struct std::hash<std::vector<T>>
     }
 };
 
+static int callback(void *NotUsed, int argc, char **argv, char **azColName)
+{
+    int i;
+    for(i = 0; i < argc; i++) {
+        auto temp_out = argv[i] ? argv[i] : "NULL";
+        std::cout << azColName[i] << " = " << temp_out << std::endl;
+    }
+    return 0;
+}
+
 class ngram_predictor 
 {
 public:
@@ -27,6 +42,7 @@ public:
     using ngram_id = std::vector<id>;
     using ngram_dict_id_tbb = oneapi::tbb::concurrent_hash_map<ngram_id, uint32_t>;
     using words_dict_tbb = oneapi::tbb::concurrent_hash_map<word, id>;
+    static constexpr auto DB_PATH = "./ngrams.db";
 
 
     explicit ngram_predictor(int n);
@@ -47,7 +63,6 @@ public:
     
 private:
 
-    static constexpr auto DB_PATH = "./ngrams.db";
 
     static constexpr auto MAX_LIVE_TOKENS = size_t{16};
     static constexpr auto MAX_FILE_SIZE = size_t{10'000'000};
@@ -74,7 +89,7 @@ private:
     auto convert_to_id(const word& word, bool train) -> id;
 
     auto predict_id(const ngram_id& context) -> id;
-
+    auto find_word(sqlite3* db, const int n, const ngram_id& context);
     int m_n;
     std::mutex m_words_id_mutex;
     ngram_dict_id_tbb m_ngram_dict_id;

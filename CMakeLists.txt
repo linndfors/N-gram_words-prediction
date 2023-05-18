@@ -15,7 +15,8 @@ add_executable(${TRAIN_EXE_NAME}
         ngram_predictor/time_measurements.hpp
         memory_usage.hpp
         memory_usage.cpp ngram_predictor/smoothing.cpp
-        ngram_predictor/smoothing.h
+        ngram_predictor/smoothing.h ngram_predictor/reduce_n_gram.cpp
+        ngram_predictor/reduce_n_gram.h
         )
 
 find_package(SQLite3 REQUIRED)
@@ -42,8 +43,8 @@ add_executable(${PREDICT_EXE_NAME}
         ngram_predictor/time_measurements.hpp
         database/database.cpp database/database.hpp
         memory_usage.hpp ngram_predictor/smoothing.cpp
-        ngram_predictor/smoothing.h
-        memory_usage.cpp)
+        ngram_predictor/smoothing.h ngram_predictor/reduce_n_gram.cpp
+        memory_usage.cpp ngram_predictor/reduce_n_gram.h)
 
 target_include_directories(${PREDICT_EXE_NAME} PRIVATE ${SQLite3_INCLUDE_DIRS})
 target_include_directories(${PREDICT_EXE_NAME} PRIVATE .)
