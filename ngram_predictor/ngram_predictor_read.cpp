@@ -15,6 +15,8 @@ void ngram_predictor::read_corpus(const std::string& path)
     auto start = get_current_time_fenced();
 
     parallel_read_pipeline(path);
+    write_ngrams_freq("ngrams_freq.txt");
+    write_words_id("words_id.txt");
     write_words_to_db();
     write_ngrams_to_db();
 
@@ -135,31 +137,48 @@ void ngram_predictor::count_ngrams_in_archive(const std::string &archive_content
     archive_read_free(archive);
 }
 
+
 void ngram_predictor::count_ngrams_in_str(std::string &file_content) {
     namespace bl = boost::locale;
 
+    // Normalize and fold case and, then, split into sentences
     auto contents = bl::fold_case(bl::normalize(file_content));
-    bl::boundary::ssegment_index words_index(bl::boundary::word, contents.begin(), contents.end());
-    words_index.rule(bl::boundary::word_letters);
-
-    ngram_id temp_ngram;
+    bl::boundary::ssegment_index sentence_index(bl::boundary::sentence, contents.begin(), contents.end());
 
     ngram_dict_id_tbb::accessor a;
-    for (const auto &word : words_index) {
-        temp_ngram.emplace_back(convert_to_id(word, true));
-        if (temp_ngram.size() == m_n) {
-            m_ngram_dict_id.insert(a, temp_ngram);
-            ++a->second;
-            temp_ngram.erase(temp_ngram.begin());
+
+    for (const auto &sentence : sentence_index) {
+        // Add <s> tag at the beginning of the sentence
+        ngram_id temp_ngram;
+        for (int i = 0; i < m_n - 1; ++i) {
+            temp_ngram.emplace_back(START_TAG_ID);
+        }
+
+        // Split into words
+        bl::boundary::ssegment_index words_index(bl::boundary::word, sentence.begin(), sentence.end());
+        words_index.rule(bl::boundary::word_letters);
+
+        for (const auto &word : words_index) {
+            temp_ngram.emplace_back(convert_to_id(word, true));
+            if (temp_ngram.size() == m_n) {
+                m_ngram_dict_id.insert(a, temp_ngram);
+                ++a->second;
+                temp_ngram.erase(temp_ngram.begin());
+                }
+            }
+
+        // Add </s> tags at the end of the sentence
+        for (int i = 0; i < (m_n - 1); ++i) {
+            temp_ngram.emplace_back(END_TAG_ID);
+            if (temp_ngram.size() == m_n) {
+                m_ngram_dict_id.insert(a, temp_ngram);
+                ++a->second;
+                temp_ngram.erase(temp_ngram.begin());
+            }
         }
     }
-
-    if (temp_ngram.size() < m_n) {
-        temp_ngram.insert(temp_ngram.begin(), START_TAG_ID, m_n - temp_ngram.size());
-        m_ngram_dict_id.insert(a, temp_ngram);
-        ++a->second;
-    }
 }
+
 
 void ngram_predictor::write_ngrams_freq(const std::string &filename) {
     std::ofstream out_file(filename);
