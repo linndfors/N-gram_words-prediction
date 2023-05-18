@@ -1,4 +1,4 @@
-#include "reduce_n_gram.h"
+#include "ngram_predictor/reduce_n_gram.h"
 
 std::string generate_alter_query(std::string table_name, std::string col_name, std::string type) {
     std::string alter_table_sql = "ALTER TABLE " + table_name + " ADD COLUMN " + col_name + type;
