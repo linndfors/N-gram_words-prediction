@@ -28,6 +28,21 @@ void ngram_predictor::check_if_path_is_dir(const std::string& filename) {
 
 auto ngram_predictor::find_word(sqlite3* db, const int n, const ngram_id& context) {
     int rc;
+    sqlite3_stmt *stmt;
+    if (n == 1) {
+        std::string sql = "SELECT ID_WORD_0 FROM n1_grams_frequency WHERE FREQUENCY = (SELECT MAX(FREQUENCY) FROM n1_grams_frequency) ORDER BY FREQUENCY DESC LIMIT 3;";
+        rc = sqlite3_prepare_v2(db, sql.c_str(), -1, &stmt, nullptr);
+        if (rc != SQLITE_OK) {
+            std::cerr << "Error preparing statement: " << sqlite3_errmsg(db) << std::endl;
+            sqlite3_close(db);
+            return 1;
+        }
+        if (sqlite3_step(stmt) == SQLITE_ROW) {
+            int word_id = sqlite3_column_int(stmt, 0);
+            std::cout<<"return id: "<<word_id<<std::endl;
+            return word_id;
+        }
+    }
     std::string sql = "SELECT * FROM n" + std::to_string(n) + "_grams_frequency WHERE ";
     for (int i = n-2; i >= 0; i--) {
         if (i < n-2) {
@@ -36,7 +51,7 @@ auto ngram_predictor::find_word(sqlite3* db, const int n, const ngram_id& contex
         sql += "ID_WORD_" + std::to_string(i) + "= ?";
     }
     std::cout<<"sql: "<<sql<<std::endl;
-    sqlite3_stmt *stmt;
+//    sqlite3_stmt *stmt;
     rc = sqlite3_prepare_v2(db, sql.c_str(), -1, &stmt, nullptr);
     int reduced_counter = n - 1;
     int context_end = context.size();
