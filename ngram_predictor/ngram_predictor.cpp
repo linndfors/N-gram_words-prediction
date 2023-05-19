@@ -75,7 +75,7 @@ auto ngram_predictor::find_word(sqlite3* db, const int n, const ngram_id& contex
     return possible_word_id;
 }
 
-auto ngram_predictor::predict_id(const ngram_id& context) -> id 
+auto ngram_predictor::predict_id(const ngram_id& context) const -> id
 {
     if (context.empty() || context.size() < m_n - 1){
         std::cerr << "Error: no n-grams have been generated or the context is too short to generate a prediction" << std::endl;
@@ -120,6 +120,49 @@ auto ngram_predictor::predict_id(const ngram_id& context) -> id
     return res_word_id;
 }
 
+
+auto ngram_predictor::clean_context(ngrams& context) const -> ngrams
+{
+    int increment = 0;
+
+    for (long i = 0; i < context.size(); ++i) {
+        context[i] = boost::locale::fold_case(boost::locale::normalize(context[i]));
+
+        if (context[i].back() == '?' || context[i].back() == '!' || context[i].back() == '.') {
+            std::string punctuation = context[i].substr(context[i].size() - 1);
+            context[i].erase(context[i].size() - 1);
+
+            // to do - add n-1 <s> and </s> tags
+            for (long j = 1; j < m_n; ++j)
+                context.insert(context.begin() +  i + j, "</s>");
+
+            for (long j = 1; j < m_n; ++j)
+                context.insert(context.begin() + i + m_n - 1 + j, "<s>");
+
+            increment += 2 * m_n - 2;
+            // possible to later add punctuation to the end of the word
+            // context[i] += punctuation;
+        }
+
+        size_t start = 0;
+        size_t end = context[i].size() - 1;
+
+        while (start <= end && !isalpha(context[i][start]))
+            start++;
+
+        while (end >= start && !isalpha(context[i][end]))
+            end--;
+
+        // Remove non-letter characters from the beginning and end
+        context[i] = context[i].substr(start, end - start + 1);
+
+        i += increment;
+        increment = 0;
+    }
+    return context;
+}
+
+
 auto ngram_predictor::predict_words(int num_words, ngrams& context) -> ngrams 
 {
     auto start = get_current_time_fenced();
@@ -131,9 +174,8 @@ auto ngram_predictor::predict_words(int num_words, ngrams& context) -> ngrams
         return {};
     }
 
-    for (auto& word: context) {
-        word = boost::locale::fold_case(boost::locale::normalize(word));
-    }
+    context = clean_context(context);
+
     auto context_ids = convert_to_ids(context, false);
     // predict new word based on n previous and add it to context
     for(int i = 0; i < num_words; ++i) {
