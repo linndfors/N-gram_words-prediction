@@ -4,6 +4,8 @@
 #include "ngram_predictor/smoothing.h"
 #include "ngram_predictor/reduce_n_gram.h"
 
+#include "database/database.hpp"
+
 
 
 ngram_predictor::ngram_predictor(int n) 
@@ -25,58 +27,38 @@ void ngram_predictor::check_if_path_is_dir(const std::string& filename) {
         exit(26);
     }
 }
-auto ngram_predictor::find_word(sqlite3* db, const int n, const ngram_id& context) {
-    int rc;
-    sqlite3_stmt *stmt;
+
+auto ngram_predictor::find_word(const int n, const ngram_id& context) {
+    auto db = DataBase(DB_PATH);
     if (n == 1) {
-        std::string sql = "SELECT ID_WORD_0 FROM n1_grams_frequency WHERE FREQUENCY = (SELECT MAX(FREQUENCY) FROM n1_grams_frequency) ORDER BY FREQUENCY DESC LIMIT 1;";
-        rc = sqlite3_prepare_v2(db, sql.c_str(), -1, &stmt, nullptr);
-        if (rc != SQLITE_OK) {
-            std::cerr << "Error preparing statement: " << sqlite3_errmsg(db) << std::endl;
-            sqlite3_close(db);
-            return 1;
-        }
-        if (sqlite3_step(stmt) == SQLITE_ROW) {
-            int word_id = sqlite3_column_int(stmt, 0);
-//            std::cout<<"return id: "<<word_id<<std::endl;
-            return word_id;
-        }
+        auto word_id = db.select<int>("n1_grams_frequency", "ID_WORD_0",
+                                  "FREQUENCY = (SELECT MAX(FREQUENCY) FROM n1_grams_frequency) ORDER BY FREQUENCY DESC LIMIT 1;")[0];
+        return word_id;
     }
-    std::string sql = "SELECT ID_WORD_" + std::to_string(n-1) + " FROM n" + std::to_string(n) + "_grams_frequency WHERE ";
-    for (int i = n - 2; i >= 0; i--) {
-        if (i < n - 2) {
-            sql += " AND ";
-        }
-        sql += "ID_WORD_" + std::to_string(i) + "= ?";
-    }
-    sql += " ORDER BY FREQUENCY DESC LIMIT 3;";
-//    std::cout<<"sql: "<<sql<<std::endl;
-    rc = sqlite3_prepare_v2(db, sql.c_str(), -1, &stmt, nullptr);
-    int reduced_counter = 1;
-    int context_end = context.size();
+
+    auto length = context.size();
+    std::string condition;
     for (int i = 0; i < n - 1; i++) {
-        sqlite3_bind_int(stmt, i + 1, context[context_end - reduced_counter]);
-        reduced_counter++;
+        condition += "ID_WORD_" + std::to_string(i) + " = " + std::to_string(context[length - n + i + 1]);
+        if (i != n - 2) {
+            condition += " AND ";
+        }
     }
-    if (rc != SQLITE_OK) {
-        std::cerr << "Error preparing statement: " << sqlite3_errmsg(db) << std::endl;
-        sqlite3_close(db);
-        return 1;
-    }
+    condition += " ORDER BY FREQUENCY DESC LIMIT 3;";
+
+    auto res = db.select<int>("n" + std::to_string(n) + "_grams_frequency", "ID_WORD_" + std::to_string(n-1), condition);
+
     int max_freq_id = 0;
     std::srand(std::time(nullptr));
-    while (sqlite3_step(stmt) == SQLITE_ROW) {
-        int possible_word_id = sqlite3_column_int(stmt, 0);
-        if (max_freq_id == 0) {
-            max_freq_id = possible_word_id;
-        } else {
-            double random_double = static_cast<double>(std::rand()) / (RAND_MAX + 1.0);
-            if (random_double > 0.5) {
-                max_freq_id = possible_word_id;
-            }
+    for (auto& word_id : res) {
+        if (!max_freq_id) {
+            max_freq_id = word_id;
+        }
+        double random_double = static_cast<double>(std::rand()) / (RAND_MAX + 1.0);
+        if (random_double > 0.5) {
+            max_freq_id = word_id;
         }
     }
-    sqlite3_finalize(stmt);
     return max_freq_id;
 }
 
@@ -86,31 +68,18 @@ auto ngram_predictor::predict_id(const ngram_id& context) const-> id
         std::cerr << "Error: no n-grams have been generated or the context is too short to generate a prediction" << std::endl;
         return -1;
     }
-    sqlite3* db;
-    char* zErrMsg = nullptr;
-    int rc;
 
-    rc = sqlite3_open(DB_PATH, &db);
-
-    if (rc) {
-        std::cerr << "Problem with opening database: " << sqlite3_errmsg(db) << std::endl;
-        exit(6);
-    }
-
-    int res_word_id = 0;
     int current_n = m_n;
-    res_word_id = find_word(db, current_n, context);
-    std::cout<<"res_word_id: "<<res_word_id<<std::endl;
+    int res_word_id = find_word(current_n, context);
     while (res_word_id == 0) {
         std::string current_table_name = "n" + std::to_string(current_n) + "_grams_frequency";
         reduce(current_table_name, current_n);
         current_n--;
-        res_word_id = find_word(db, current_n, context);
+        res_word_id = find_word(current_n, context);
     }
-    sqlite3_close(db);
+
     return res_word_id;
 }
-
 
 auto ngram_predictor::clean_context(ngrams& context) const -> ngrams
 {
@@ -153,7 +122,6 @@ auto ngram_predictor::clean_context(ngrams& context) const -> ngrams
     return context;
 }
 
-
 auto ngram_predictor::predict_words(int num_words, ngrams& context) -> ngrams 
 {
     auto start = get_current_time_fenced();
@@ -184,10 +152,10 @@ auto ngram_predictor::predict_words(int num_words, ngrams& context) -> ngrams
     return result;
 }
 
-
 auto ngram_predictor::convert_to_ids(const ngram_predictor::ngrams &ngram, bool train) -> ngram_id 
 {
     ngram_id ngram_ids;
+    // if training, add new words to m_words_dict
     if (train) {
         words_dict_tbb::accessor a;
         for (const auto &word: ngram) {
@@ -204,38 +172,19 @@ auto ngram_predictor::convert_to_ids(const ngram_predictor::ngrams &ngram, bool 
         }
         return ngram_ids;
     }
-    else {
-        sqlite3 *db;
-        char *error_message = 0;
-        int rc;
-        rc = sqlite3_open(DB_PATH, &db);
-        if (rc) {
-            std::cout << "Can't open database: " << sqlite3_errmsg(db) << std::endl;
-            exit(6);
+
+    // if predicting, get words from database
+    auto db = DataBase(DB_PATH);
+
+    for (const auto &word: ngram) {
+        auto id = db.select<int>("all_words_id", "ID", "WORD = '" + word + "';")[0];
+        if (!id) {
+            // if predicting and word does not exist in m_words_dict, add <unk> to the dictionary
+            id = UNKNOWN_TAG_ID;
         }
-        for (const auto &word: ngram) {
-            std::string sql = "SELECT ID FROM all_words_id WHERE WORD = '" + word + "';";
-            sqlite3_stmt *stmt;
-            rc = sqlite3_prepare_v2(db, sql.c_str(), -1, &stmt, nullptr);
-            if (rc != SQLITE_OK) {
-                std::cerr << "Error preparing statement: find id " << sqlite3_errmsg(db) << std::endl;
-                sqlite3_close(db);
-                exit(6);
-            }
-            rc = sqlite3_step(stmt);
-            if (rc == SQLITE_ROW) {
-                int id = sqlite3_column_int(stmt, 0);
-                ngram_ids.push_back(id);
-            }
-                // if predicting and word does not exist in m_words_dict, add <unk> to the dictionary
-            else {
-                ngram_ids.push_back(UNKNOWN_TAG_ID);
-            }
-            sqlite3_finalize(stmt);
-        }
-        sqlite3_close(db);
-        return ngram_ids;
+        ngram_ids.push_back(id);
     }
+    return ngram_ids;
 }
 
 auto ngram_predictor::convert_to_id(const ngram_predictor::word &word, bool train) -> id {
@@ -253,39 +202,11 @@ auto ngram_predictor::convert_to_words(const ngram_predictor::ngram_id &ngram) -
 
 auto ngram_predictor::convert_to_word(const ngram_predictor::id &id) -> word 
 {
-    sqlite3 *db;
-    char *zErrMsg = nullptr;
-    int rc;
-    rc = sqlite3_open(DB_PATH, &db);
+    auto db = DataBase(DB_PATH);
 
-    if (rc) {
-        std::cerr << "Problem with opening database" << std::endl;
-        exit(6);
-    }
-    std::string sql = "SELECT WORD FROM all_words_id WHERE ID = " + std::to_string(id) + ";";
-    sqlite3_stmt *stmt;
-    rc = sqlite3_prepare_v2(db, sql.c_str(), -1, &stmt, nullptr);
-    if (rc != SQLITE_OK) {
-        std::cerr << "Error preparing statement: find word " << sqlite3_errmsg(db) << std::endl;
-        sqlite3_close(db);
-        exit(6);
-    }
-    rc = sqlite3_step(stmt);
-    if (rc == SQLITE_ROW) {
-        const char *result = reinterpret_cast<const char *>(sqlite3_column_text(stmt, 0));
-        std::string word(result);
-        return word;
-    } else if (rc == SQLITE_DONE) {
-        std::cerr << "No rows returned" << std::endl;
-    } else {
-        std::cerr << "Error executing statement: " << sqlite3_errmsg(db) << std::endl;
-    }
-
-    sqlite3_finalize(stmt);
-    sqlite3_close(db);
-    return "";
+    auto result = db.select<word>("all_words_id", "WORD", "ID = " + std::to_string(id))[0];
+    return result;
 }
-
 
 void ngram_predictor::print_training_time() const 
 {
@@ -306,80 +227,40 @@ void ngram_predictor::write_ngrams_to_db()
 {
     auto start = get_current_time_fenced();
 
-    sqlite3 *db;
-    char *zErrMsg = nullptr;
-    int rc;
+    // open database
+    auto db = DataBase(DB_PATH);
+    // drop table if exists
+    auto table_name = "n" + std::to_string(m_n) + "_grams_frequency";
+    db.drop_table(table_name);
 
-    rc = sqlite3_open(DB_PATH, &db);
+    // create column names using for cycle and create table
+    std::string column_names;
+    for (int j = 0; j < m_n; ++j) {
+        column_names += "ID_WORD_" + std::to_string(j) + " INT, ";
+    }
+    column_names += "FREQUENCY INT";
+    db.create_table(table_name, column_names);
 
-    if (rc) {
-        std::cerr<<"Problem with opening database"<<std::endl;
-        exit(6);
-    }
-    std::string table_name = "n" + std::to_string(m_n) + "_grams_frequency";
-    std::string sql = "DROP TABLE IF EXISTS " + table_name + ";";
-    rc = sqlite3_exec(db, sql.c_str(), callback, nullptr, &zErrMsg);
-    if (rc != SQLITE_OK) {
-        std::cerr<<"Problem with droping table"<<std::endl;
-        sqlite3_close(db);
-        exit(6);
-    }
-    sql = "CREATE TABLE " + table_name + "(ID_WORD_0 INT);";
-    rc = sqlite3_exec(db, sql.c_str(), callback, nullptr, &zErrMsg);
-
-    if (rc != SQLITE_OK) {
-        std::cerr<<"Problem with creating table"<<std::endl;
-        sqlite3_close(db);
-        exit(6);
-    }
-
-    if (m_n > 1) {
-        for (int j = 1; j < m_n; ++j) {
-            std::string col_name = "ID_WORD_" + std::to_string(j);
-            std::string sql_add_col = "ALTER TABLE " + table_name + " ADD COLUMN " + col_name + " INT";
-            rc = sqlite3_exec(db, sql_add_col.c_str(), callback, nullptr, &zErrMsg);
-            if (rc != SQLITE_OK) {
-                std::cerr<<"Problem with adding columns"<<std::endl;
-                sqlite3_close(db);
-                exit(6);
-            }
-        }
-    }
-    sql = "ALTER TABLE " + table_name + " ADD COLUMN " + "FREQUENCY" + " INT";
-    sqlite3_exec(db, sql.c_str(), callback, nullptr, &zErrMsg);
-    rc = sqlite3_exec(db, "BEGIN TRANSACTION;", callback, nullptr, &zErrMsg);
-    if (rc != SQLITE_OK) {
-        std::cerr << "Failed to begin transaction" << std::endl;
-        sqlite3_close(db);
-        exit(6);
-    }
+    // insert ngrams into table
+    db.begin_transaction();
     for (const auto& pair : m_ngram_dict_id) {
-        ngram_id words = pair.first;
-        auto value = pair.second;
-        std::string fields;
-        std::string words_id;
-        for (int i = 0; i < m_n; ++i) {
-            words_id += std::to_string(words[i]);
-            words_id += ", ";
-            fields += "ID_WORD_" + std::to_string(i);
-            fields += ", ";
-        }
-        sql = "INSERT INTO " + table_name + "(" + fields + "FREQUENCY) VALUES (" + words_id + std::to_string(value) + ");";
+        auto word_ids = pair.first;
+        auto freq = static_cast<int>(pair.second);
 
-        rc = sqlite3_exec(db, sql.c_str(), callback, nullptr, &zErrMsg);
-        if (rc != SQLITE_OK) {
-            std::cerr<<"Problem with inserting"<<std::endl;
-            sqlite3_close(db);
-            exit(6);
+        // create string for insert values of word ids and frequency
+        // and string for column names
+        std::string fields;
+        std::string insert_values;
+        for (int i = 0; i < m_n; ++i) {
+            insert_values += std::to_string(word_ids[i]) + ", ";
+            fields += "ID_WORD_" + std::to_string(i) + ", ";
         }
+        insert_values += std::to_string(freq);
+        fields += "FREQUENCY";
+
+        db.insert(table_name, fields, insert_values);
     }
-    rc = sqlite3_exec(db, "COMMIT;", callback, nullptr, &zErrMsg);
-    if (rc != SQLITE_OK) {
-        std::cerr << "Failed to commit transaction" << std::endl;
-        sqlite3_close(db);
-        exit(6);
-    }
-    sqlite3_close(db);
+    db.commit_transaction();
 
     auto end = get_current_time_fenced();
     m_writing_ngrams_to_db_time = to_ms(end - start);
@@ -388,72 +269,20 @@ void ngram_predictor::write_ngrams_to_db()
 void ngram_predictor::write_words_to_db() 
 {
     auto start = get_current_time_fenced();
+    // open database
+    auto db = DataBase(DB_PATH);
+    // drop table if exists
+    db.drop_table("all_words_id");
+    // create table
+    db.create_table("all_words_id", "ID INT PRIMARY KEY, WORD VARCHAR(50)");
 
-    sqlite3 *db;
-    char *zErrMsg = nullptr;
-    int rc;
-
-    rc = sqlite3_open(DB_PATH, &db);
-    if (rc) {
-        std::cerr<<"Problem with open database"<<std::endl;
-        exit(6);
-    }
-    std::string sql = "DROP TABLE IF EXISTS all_words_id;";
-    rc = sqlite3_exec(db, sql.c_str(), callback, nullptr, &zErrMsg);
-    if (rc != SQLITE_OK) {
-        std::cerr<<"Problem with dropping table"<<std::endl;
-        sqlite3_close(db);
-        exit(6);
-    }
-
-    sql = "CREATE TABLE all_words_id (ID INT PRIMARY KEY, WORD VARCHAR(50));";
-    rc = sqlite3_exec(db, sql.c_str(), callback, nullptr, &zErrMsg);
-
-    if( rc != SQLITE_OK ) {
-        std::cerr<<"Problem with creating table"<<std::endl;
-        sqlite3_close(db);
-        exit(6);
-    }
-    rc = sqlite3_exec(db, "BEGIN TRANSACTION;", callback, nullptr, &zErrMsg);
-    if (rc != SQLITE_OK) {
-        std::cerr << "Failed to begin transaction" << std::endl;
-        sqlite3_close(db);
-        exit(6);
-    }
+    // insert words into table
+    db.begin_transaction();
     for (const auto& pair : m_words_dict) {
-        sqlite3_stmt* stmt;
-        sql = "INSERT INTO all_words_id (ID, WORD) VALUES (?, ?)";
-
-        rc = sqlite3_prepare_v2(db, sql.c_str(), -1, &stmt, nullptr);
-
-        if (rc == SQLITE_OK) {
-            auto id = pair.second;
-            std::string word = pair.first;
-
-            sqlite3_bind_int(stmt, 1, static_cast<int>(id));
-            sqlite3_bind_text(stmt, 2, word.c_str(), -1, SQLITE_STATIC);
-
-            rc = sqlite3_step(stmt);
-            if (rc != SQLITE_DONE) {
-                std::cerr << "Problem with inserting: " << sqlite3_errmsg(db) << std::endl;
-                sqlite3_finalize(stmt);
-                sqlite3_close(db);
-                exit(6);
-            }
-            sqlite3_finalize(stmt);
-        } else {
-            std::cerr << "Error preparing statement: " << sqlite3_errmsg(db) << std::endl;
-            sqlite3_close(db);
-            exit(6);
-        }
+        db.insert("all_words_id", "ID, WORD",
+                  std::to_string(static_cast<int>(pair.second)) + ", \"" + pair.first + "\"");
     }
-    rc = sqlite3_exec(db, "COMMIT;", callback, nullptr, &zErrMsg);
-    if (rc != SQLITE_OK) {
-        std::cerr << "Failed to commit transaction" << std::endl;
-        sqlite3_close(db);
-        exit(6);
-    }
-    sqlite3_close(db);
+    db.commit_transaction();
 
     auto end = get_current_time_fenced();
     m_writing_words_to_db_time = to_ms(end - start);

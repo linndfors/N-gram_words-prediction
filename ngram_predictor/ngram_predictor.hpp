@@ -2,10 +2,7 @@
 #define NGRAM_NGRAM_PREDICTOR_HPP
 
 #include <boost/locale.hpp>
-#include <sqlite3.h>
 #include <iostream>
-#include <cstdlib>
-#include <string>
 #include <string>
 #include <vector>
 #include <unordered_set>
@@ -64,8 +61,6 @@ public:
     auto write_words_id(const std::string& filename) -> void;
     
 private:
-
-
     static constexpr auto MAX_LIVE_TOKENS = size_t{16};
     static constexpr auto MAX_FILE_SIZE = size_t{10'000'000};
     
@@ -91,7 +86,7 @@ private:
     auto convert_to_id(const word& word, bool train) -> id;
 
     auto predict_id(const ngram_id& context) const -> id;
-    static auto find_word(sqlite3* db, const int n, const ngram_id& context);
+    static auto find_word(const int n, const ngram_id& context);
     int m_n;
     std::mutex m_words_id_mutex;
     ngram_dict_id_tbb m_ngram_dict_id;
@@ -101,12 +96,12 @@ private:
     std::unordered_set<std::string> m_indexing_extensions{".txt"};
     std::unordered_set<std::string> m_archives_extensions{".zip"};
 
-    size_t m_total_training_time;
-    size_t m_finding_time;
-    size_t m_reading_time;
-    size_t m_writing_ngrams_to_db_time;
-    size_t m_writing_words_to_db_time;
-    size_t m_predicting_time;
+    size_t m_total_training_time{};
+    size_t m_finding_time{};
+    size_t m_reading_time{};
+    size_t m_writing_ngrams_to_db_time{};
+    size_t m_writing_words_to_db_time{};
+    size_t m_predicting_time{};
 };
 
 #endif //NGRAM_NGRAM_PREDICTOR_HPP

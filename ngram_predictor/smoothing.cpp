@@ -1,3 +1,5 @@
+#include <sqlite3.h>
+#include <cstdlib>
 #include "ngram_predictor/smoothing.h"
 #include "ngram_predictor/ngram_predictor.hpp"
 #include "ngram_predictor/reduce_n_gram.h"

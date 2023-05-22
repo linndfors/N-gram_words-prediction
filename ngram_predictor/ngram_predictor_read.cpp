@@ -1,6 +1,8 @@
 #include "ngram_predictor/ngram_predictor.hpp"
 #include "ngram_predictor/time_measurements.hpp"
 
+#include "database/exception.hpp"
+
 #include <fstream>
 #include <boost/locale.hpp>
 #include <archive.h>
@@ -15,8 +17,14 @@ void ngram_predictor::read_corpus(const std::string& path)
     auto start = get_current_time_fenced();
 
     parallel_read_pipeline(path);
-    write_words_to_db();
-    write_ngrams_to_db();
+    try {
+        write_words_to_db();
+        write_ngrams_to_db();
+    }
+    catch (const database_error& e) {
+        std::cerr << e.what() << std::endl;
+        e.exit();
+    }
 
     auto finish = get_current_time_fenced();
     m_total_training_time = to_ms(finish - start);
