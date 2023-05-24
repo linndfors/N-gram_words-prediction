@@ -150,7 +150,7 @@ void ngram_predictor::count_ngrams_in_str(std::string &file_content) {
     // Normalize and fold case and, then, split into sentences
     auto contents = bl::fold_case(bl::normalize(file_content));
     bl::boundary::ssegment_index sentence_index(bl::boundary::sentence, contents.begin(), contents.end());
-
+    sentence_index.rule(bl::boundary::sentence_term);
     ngram_dict_id_tbb::accessor a;
 
     for (const auto &sentence : sentence_index) {
