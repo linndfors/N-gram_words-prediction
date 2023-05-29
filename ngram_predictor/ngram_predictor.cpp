@@ -5,6 +5,7 @@
 #include "ngram_predictor/reduce_n_gram.h"
 
 #include "database/database.hpp"
+#include <limits.h>
 
 
 
@@ -15,6 +16,16 @@ ngram_predictor::ngram_predictor(int n)
     boost::locale::generator gen;
     std::locale loc = gen("en_US.UTF-8");
     std::locale::global(loc);
+
+    ngram_id sentence_tag(m_n-1, END_TAG_ID);
+
+    for (auto i = 0; i < m_n - 1; ++i) {
+        sentence_tag.emplace_back(START_TAG_ID);
+        ngram_dict_id_tbb::accessor a;
+        m_ngram_dict_id.insert(a, sentence_tag);
+        a->second = INT_MAX;
+        sentence_tag.erase(sentence_tag.begin());
+    }
 }
 
 void ngram_predictor::check_if_path_is_dir(const std::string& filename) {
