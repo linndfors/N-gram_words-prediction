@@ -8,8 +8,10 @@
 #include <unordered_set>
 #include <filesystem>
 #include <mutex>
+#include <condition_variable>
 #include <boost/functional/hash.hpp>
 #include <oneapi/tbb/concurrent_hash_map.h>
+#include <oneapi/tbb/concurrent_queue.h>
 
 template <typename T>
 struct std::hash<std::vector<T>> 
@@ -37,9 +39,11 @@ public:
     using ngrams = std::vector<word>;
     using id = uint32_t;
     using ngram_id = std::vector<id>;
+    using ngram_dict_id = std::unordered_map<ngram_id, uint32_t>;
+    using q_ngram_dict_id = oneapi::tbb::concurrent_bounded_queue<ngram_dict_id>;
     using ngram_dict_id_tbb = oneapi::tbb::concurrent_hash_map<ngram_id, uint32_t>;
     using words_dict_tbb = oneapi::tbb::concurrent_hash_map<word, id>;
-    static constexpr auto DB_PATH = "./ngrams.db";
+    static constexpr auto DB_PATH = "./ngrams_test.db";
 
 
     explicit ngram_predictor(int n);
@@ -62,6 +66,8 @@ public:
     
 private:
     static constexpr auto MAX_LIVE_TOKENS = size_t{16};
+    static constexpr auto MERGE_THREADS = size_t{4};
+    static constexpr auto MAX_NGRAM_DICT_SIZE = size_t{10};
     static constexpr auto MAX_FILE_SIZE = size_t{10'000'000};
     
     static constexpr auto START_TAG_ID = uint32_t{1};
@@ -75,6 +81,7 @@ private:
     auto count_ngrams_in_file(std::pair<std::string, std::string> file_content) -> void;
     auto count_ngrams_in_archive(const std::string &archive_content) -> void;
     auto count_ngrams_in_str(std::string &file_content) -> void;
+    auto merge_temp_ngram_dict_to_global() -> void;
 
     auto parallel_read_pipeline(const std::string& path) -> void;
     auto write_ngrams_to_db() -> void;
@@ -89,9 +96,15 @@ private:
     static auto find_word(const int n, const ngram_id& context);
     int m_n;
     std::mutex m_words_id_mutex;
-    ngram_dict_id_tbb m_ngram_dict_id;
+    std::mutex m_merge_mutex;
+    std::mutex m_accessors_mutex;
+    std::condition_variable m_merge_cv;
+    int m_accessors{0};
+    bool m_was_writen_to_db{false};
+    ngram_dict_id m_ngram_dict_id;
     words_dict_tbb m_words_dict;
     uint32_t m_last_word_id{UNKNOWN_TAG_ID};
+    q_ngram_dict_id m_q_temp_ngram_dict;
 
     std::unordered_set<std::string> m_indexing_extensions{".txt"};
     std::unordered_set<std::string> m_archives_extensions{".zip"};

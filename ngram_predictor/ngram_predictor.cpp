@@ -13,6 +13,7 @@ ngram_predictor::ngram_predictor(int n)
     : m_n{n}
     , m_words_dict{{"<s>", START_TAG_ID}, {"</s>", END_TAG_ID}, {"<unk>", UNKNOWN_TAG_ID}}
 {
+    m_q_temp_ngram_dict.set_capacity(1000);
     boost::locale::generator gen;
     std::locale loc = gen("en_US.UTF-8");
     std::locale::global(loc);
@@ -21,9 +22,10 @@ ngram_predictor::ngram_predictor(int n)
 
     for (auto i = 0; i < m_n - 1; ++i) {
         sentence_tag.emplace_back(START_TAG_ID);
-        ngram_dict_id_tbb::accessor a;
-        m_ngram_dict_id.insert(a, sentence_tag);
-        a->second = INT_MAX;
+//        ngram_dict_id_tbb::accessor a;
+//        m_ngram_dict_id.insert(a, sentence_tag);
+//        a->second = INT_MAX;
+        m_ngram_dict_id[sentence_tag] = INT_MAX;
         sentence_tag.erase(sentence_tag.begin());
     }
 }
@@ -242,15 +244,24 @@ void ngram_predictor::write_ngrams_to_db()
     auto db = DataBase(DB_PATH);
     // drop table if exists
     auto table_name = "n" + std::to_string(m_n) + "_grams_frequency";
-    db.drop_table(table_name);
 
-    // create column names using for cycle and create table
-    std::string column_names;
-    for (int j = 0; j < m_n; ++j) {
-        column_names += "ID_WORD_" + std::to_string(j) + " INT, ";
+    if (!m_was_writen_to_db) {
+        db.drop_table(table_name);
+        // create column names using for cycle and create table
+        std::string column_names;
+        std::string unique_index;
+        for (int j = 0; j < m_n; ++j) {
+            unique_index += "ID_WORD_" + std::to_string(j);
+            if (j != m_n - 1) {
+                unique_index += ", ";
+            }
+            column_names += "ID_WORD_" + std::to_string(j) + " INT, ";
+        }
+        column_names += "FREQUENCY INT";
+        db.create_table(table_name, column_names);
+        db.create_unique_index(table_name, unique_index);
     }
-    column_names += "FREQUENCY INT";
-    db.create_table(table_name, column_names);
+
 
     // insert ngrams into table
     db.begin_transaction();
@@ -263,18 +274,30 @@ void ngram_predictor::write_ngrams_to_db()
         std::string fields;
         std::string insert_values;
         for (int i = 0; i < m_n; ++i) {
-            insert_values += std::to_string(word_ids[i]) + ", ";
-            fields += "ID_WORD_" + std::to_string(i) + ", ";
+            insert_values += std::to_string(word_ids[i]);
+            fields += "ID_WORD_" + std::to_string(i);
+            if (i != m_n - 1) {
+                insert_values += ", ";
+                fields += ", ";
+            }
         }
-        insert_values += std::to_string(freq);
-        fields += "FREQUENCY";
 
-        db.insert(table_name, fields, insert_values);
+
+        if (!m_was_writen_to_db) {
+            insert_values += ", " + std::to_string(freq);
+            fields += ", FREQUENCY";
+            db.insert(table_name, fields, insert_values);
+        } else {
+            db.insert_with_conflict(table_name, fields, "FREQUENCY", insert_values, std::to_string(freq));
+        }
     }
     db.commit_transaction();
 
+    if (!m_was_writen_to_db) {
+        m_was_writen_to_db = true;
+    }
     auto end = get_current_time_fenced();
-    m_writing_ngrams_to_db_time = to_ms(end - start);
+    m_writing_ngrams_to_db_time += to_ms(end - start);
 }
 
 void ngram_predictor::write_words_to_db() 
