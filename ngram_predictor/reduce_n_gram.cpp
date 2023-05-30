@@ -5,7 +5,7 @@
 #include <iostream>
 #include <vector>
 
-std::string generate_alter_query(std::string table_name, std::string col_name, std::string type) {
+std::string generate_alter_query(const std::string& table_name, const std::string& col_name, const std::string& type) {
     std::string alter_table_sql = "ALTER TABLE " + table_name + " ADD COLUMN " + col_name + type;
     return alter_table_sql;
 }
@@ -13,7 +13,7 @@ std::string generate_alter_query(std::string table_name, std::string col_name, s
 void reduce(std::string const& table_name, int n) {
     //...initialize database...
     sqlite3 *db;
-    char *error_message = 0;
+    char *error_message = nullptr;
     int rc;
 
 
