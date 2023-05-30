@@ -84,6 +84,8 @@ auto ngram_predictor::predict_id(const ngram_id& context) const-> id
     int res_word_id = find_word(current_n, context);
     while (res_word_id == 0) {
         std::string current_table_name = "n" + std::to_string(current_n) + "_grams_frequency";
+        std::cout<<"current_table_name: "<<current_table_name<<std::endl;
+        reduce(current_table_name, current_n);
         current_n--;
         res_word_id = find_word(current_n, context);
     }
