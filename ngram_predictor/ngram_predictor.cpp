@@ -5,7 +5,7 @@
 #include "ngram_predictor/reduce_n_gram.h"
 
 #include "database/database.hpp"
-#include <limits.h>
+#include <climits>
 
 
 ngram_predictor::ngram_predictor(int n) 
@@ -136,18 +136,18 @@ auto ngram_predictor::remove_tags(ngram_predictor::ngrams& words) -> ngrams {
     ngrams res;
     bool capitalize = false;
 
-    for (int i = 0; i < words.size(); ++i) {
-        if (words[i] == "</s>") {
+    for (const auto & word : words) {
+        if (word == "</s>") {
             if (!res.empty() && res.back().back() != '.' && res.back() != "</s>") {
                 res[res.size() - 1] += ".";
                 capitalize = true;
             }
-        } else if (words[i] != "<s>") {
+        } else if (word != "<s>") {
             if (capitalize) {
-                res.push_back(boost::locale::to_title(words[i]));
+                res.push_back(boost::locale::to_title(word));
                 capitalize = false;
             } else {
-                res.push_back(words[i]);
+                res.push_back(word);
             }
         }
     }

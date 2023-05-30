@@ -81,8 +81,8 @@ private:
     auto write_ngrams_to_db() -> void;
     auto write_words_to_db() -> void;
 
-    auto convert_to_words(const ngram_id& ngram) -> ngrams;
-    auto convert_to_word(const id& id) -> word;
+    static auto convert_to_words(const ngram_id& ngram) -> ngrams;
+    static auto convert_to_word(const id& id) -> word;
     auto convert_to_ids(const ngrams& ngram, bool train) -> ngram_id;
     auto convert_to_id(const word& word, bool train) -> id;
 
