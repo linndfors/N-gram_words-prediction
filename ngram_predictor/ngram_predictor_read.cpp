@@ -150,19 +150,24 @@ void ngram_predictor::count_ngrams_in_str(std::string &file_content) {
     // Normalize and fold case and, then, split into sentences
     auto contents = bl::fold_case(bl::normalize(file_content));
     bl::boundary::ssegment_index sentence_index(bl::boundary::sentence, contents.begin(), contents.end());
-
+    sentence_index.rule(bl::boundary::sentence_term);
     ngram_dict_id_tbb::accessor a;
 
     for (const auto &sentence : sentence_index) {
+        // Split into words
+        bl::boundary::ssegment_index words_index(bl::boundary::word, sentence.begin(), sentence.end());
+        words_index.rule(bl::boundary::word_letters);
+
+        // Skip empty sentences
+        if (words_index.begin() == words_index.end()) {
+            continue;
+        }
+
         // Add <s> tag at the beginning of the sentence
         ngram_id temp_ngram;
         for (int i = 0; i < m_n - 1; ++i) {
             temp_ngram.emplace_back(START_TAG_ID);
         }
-
-        // Split into words
-        bl::boundary::ssegment_index words_index(bl::boundary::word, sentence.begin(), sentence.end());
-        words_index.rule(bl::boundary::word_letters);
 
         for (const auto &word : words_index) {
             temp_ngram.emplace_back(convert_to_id(word, true));

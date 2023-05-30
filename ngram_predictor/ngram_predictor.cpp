@@ -5,6 +5,7 @@
 #include "ngram_predictor/reduce_n_gram.h"
 
 #include "database/database.hpp"
+#include <limits.h>
 
 
 
@@ -15,6 +16,16 @@ ngram_predictor::ngram_predictor(int n)
     boost::locale::generator gen;
     std::locale loc = gen("en_US.UTF-8");
     std::locale::global(loc);
+
+    ngram_id sentence_tag(m_n-1, END_TAG_ID);
+
+    for (auto i = 0; i < m_n - 1; ++i) {
+        sentence_tag.emplace_back(START_TAG_ID);
+        ngram_dict_id_tbb::accessor a;
+        m_ngram_dict_id.insert(a, sentence_tag);
+        a->second = INT_MAX;
+        sentence_tag.erase(sentence_tag.begin());
+    }
 }
 
 void ngram_predictor::check_if_path_is_dir(const std::string& filename) {
@@ -73,7 +84,8 @@ auto ngram_predictor::predict_id(const ngram_id& context) const-> id
     int res_word_id = find_word(current_n, context);
     while (res_word_id == 0) {
         std::string current_table_name = "n" + std::to_string(current_n) + "_grams_frequency";
-        reduce(current_table_name, current_n);
+//        std::cout<<"here0"<<std::endl;
+//        reduce(current_table_name, current_n);
         current_n--;
         res_word_id = find_word(current_n, context);
     }
@@ -92,7 +104,6 @@ auto ngram_predictor::clean_context(ngrams& context) const -> ngrams
             std::string punctuation = context[i].substr(context[i].size() - 1);
             context[i].erase(context[i].size() - 1);
 
-            // to do - add n-1 <s> and </s> tags
             for (long j = 1; j < m_n; ++j)
                 context.insert(context.begin() +  i + j, "</s>");
 
@@ -100,21 +111,21 @@ auto ngram_predictor::clean_context(ngrams& context) const -> ngrams
                 context.insert(context.begin() + i + m_n - 1 + j, "<s>");
 
             increment += 2 * m_n - 2;
-            // possible to later add punctuation to the end of the word
-            // context[i] += punctuation;
         }
 
-        size_t start = 0;
-        size_t end = context[i].size() - 1;
+        if (context[i] != "<s>" && context[i] != "</s>") {
+            size_t start = 0;
+            size_t end = context[i].size() - 1;
 
-        while (start <= end && !isalpha(context[i][start]))
-            start++;
+            while (start <= end && !isalpha(context[i][start]))
+                start++;
 
-        while (end >= start && !isalpha(context[i][end]))
-            end--;
+            while (end >= start && !isalpha(context[i][end]))
+                end--;
 
-        // Remove non-letter characters from the beginning and end
-        context[i] = context[i].substr(start, end - start + 1);
+            // Remove non-letter characters from the beginning and end
+            context[i] = context[i].substr(start, end - start + 1);
+        }
 
         i += increment;
         increment = 0;

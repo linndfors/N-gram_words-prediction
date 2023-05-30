@@ -48,7 +48,7 @@ public:
         auto rc = sqlite3_step(stmt);
         if (rc == SQLITE_DONE) {
             sqlite3_finalize(stmt);
-            return {};
+            return {{}};
         }
         if (rc != SQLITE_ROW) {
             sqlite3_finalize(stmt);
