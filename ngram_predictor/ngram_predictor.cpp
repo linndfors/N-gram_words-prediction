@@ -8,7 +8,6 @@
 #include <limits.h>
 
 
-
 ngram_predictor::ngram_predictor(int n) 
     : m_n{n}
     , m_words_dict{{"<s>", START_TAG_ID}, {"</s>", END_TAG_ID}, {"<unk>", UNKNOWN_TAG_ID}}
