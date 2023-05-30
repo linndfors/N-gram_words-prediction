@@ -135,17 +135,27 @@ auto ngram_predictor::clean_context(ngrams& context) const -> ngrams
 
 auto ngram_predictor::remove_tags(ngram_predictor::ngrams& words) -> ngrams {
     ngrams res;
+    bool capitalize = false;
 
     for (int i = 0; i < words.size()-1; ++i) {
         if (words[i] == "</s>") {
-            if (!res.empty() && res.back().back() != '.') {
+            if (!res.empty() && res.back().back() != '.' && res.back() != "</s>") {
                 res[res.size() - 1] += ".";
+                capitalize = true;
             }
-        } else if (words[i] == "<s>") {
-            continue;
-        } else {
-            res.push_back(words[i]);
+        } else if (words[i] != "<s>") {
+            if (capitalize) {
+                res.push_back(boost::locale::to_title(words[i]));
+                capitalize = false;
+            } else {
+                res.push_back(words[i]);
+            }
         }
+    }
+
+    // Capitalize the first word
+    if (!res.empty()) {
+        res[0] = boost::locale::to_title(res[0]);
     }
 
     return res;
