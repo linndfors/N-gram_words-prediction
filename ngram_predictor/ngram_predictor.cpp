@@ -104,7 +104,6 @@ auto ngram_predictor::clean_context(ngrams& context) const -> ngrams
             std::string punctuation = context[i].substr(context[i].size() - 1);
             context[i].erase(context[i].size() - 1);
 
-            // to do - add n-1 <s> and </s> tags
             for (long j = 1; j < m_n; ++j)
                 context.insert(context.begin() +  i + j, "</s>");
 
@@ -112,21 +111,21 @@ auto ngram_predictor::clean_context(ngrams& context) const -> ngrams
                 context.insert(context.begin() + i + m_n - 1 + j, "<s>");
 
             increment += 2 * m_n - 2;
-            // possible to later add punctuation to the end of the word
-            // context[i] += punctuation;
         }
 
-        size_t start = 0;
-        size_t end = context[i].size() - 1;
+        if (context[i] != "<s>" && context[i] != "</s>") {
+            size_t start = 0;
+            size_t end = context[i].size() - 1;
 
-        while (start <= end && !isalpha(context[i][start]))
-            start++;
+            while (start <= end && !isalpha(context[i][start]))
+                start++;
 
-        while (end >= start && !isalpha(context[i][end]))
-            end--;
+            while (end >= start && !isalpha(context[i][end]))
+                end--;
 
-        // Remove non-letter characters from the beginning and end
-        context[i] = context[i].substr(start, end - start + 1);
+            // Remove non-letter characters from the beginning and end
+            context[i] = context[i].substr(start, end - start + 1);
+        }
 
         i += increment;
         increment = 0;
