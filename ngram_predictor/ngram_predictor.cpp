@@ -84,8 +84,6 @@ auto ngram_predictor::predict_id(const ngram_id& context) const-> id
     int res_word_id = find_word(current_n, context);
     while (res_word_id == 0) {
         std::string current_table_name = "n" + std::to_string(current_n) + "_grams_frequency";
-//        std::cout<<"here0"<<std::endl;
-//        reduce(current_table_name, current_n);
         current_n--;
         res_word_id = find_word(current_n, context);
     }
@@ -133,6 +131,26 @@ auto ngram_predictor::clean_context(ngrams& context) const -> ngrams
     return context;
 }
 
+auto ngram_predictor::remove_tags(ngram_predictor::ngrams& words) -> ngrams {
+    ngrams res;
+
+    for (int i = 0; i < words.size()-1; ++i) {
+        if (words[i] == "</s>") {
+            if (!res.empty() && res.back().back() != '.') {
+                res[res.size() - 1] += ".";
+            }
+        } else if (words[i] == "<s>") {
+            continue;
+        } else {
+            res.push_back(words[i]);
+        }
+    }
+
+    return res;
+}
+
+
+
 auto ngram_predictor::predict_words(int num_words, ngrams& context) -> ngrams 
 {
     auto start = get_current_time_fenced();
@@ -160,7 +178,7 @@ auto ngram_predictor::predict_words(int num_words, ngrams& context) -> ngrams
 
     auto end = get_current_time_fenced();
     m_predicting_time = to_ms(end - start);
-    return result;
+    return remove_tags(result);
 }
 
 auto ngram_predictor::convert_to_ids(const ngram_predictor::ngrams &ngram, bool train) -> ngram_id 

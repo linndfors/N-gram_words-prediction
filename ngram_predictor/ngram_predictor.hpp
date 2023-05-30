@@ -52,6 +52,7 @@ public:
     void read_corpus(const std::string& path);
     auto predict_words(int num_words, ngrams& context) -> ngrams;
     auto clean_context(ngrams& context) const -> ngrams;
+    static auto remove_tags(ngrams& words) -> ngrams;
 
     auto print_training_time() const -> void;
     auto print_predicting_time() const -> void;
