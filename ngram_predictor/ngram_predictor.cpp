@@ -136,7 +136,7 @@ auto ngram_predictor::remove_tags(ngram_predictor::ngrams& words) -> ngrams {
     ngrams res;
     bool capitalize = false;
 
-    for (int i = 0; i < words.size()-1; ++i) {
+    for (int i = 0; i < words.size(); ++i) {
         if (words[i] == "</s>") {
             if (!res.empty() && res.back().back() != '.' && res.back() != "</s>") {
                 res[res.size() - 1] += ".";
@@ -151,7 +151,6 @@ auto ngram_predictor::remove_tags(ngram_predictor::ngrams& words) -> ngrams {
             }
         }
     }
-
     // Capitalize the first word
     if (!res.empty()) {
         res[0] = boost::locale::to_title(res[0]);
@@ -174,14 +173,21 @@ auto ngram_predictor::predict_words(int num_words, ngrams& context) -> ngrams
     }
 
     context = clean_context(context);
+    int predicted_words = 0;
 
     auto context_ids = convert_to_ids(context, false);
+
     // predict new word based on n previous and add it to context
-    for(int i = 0; i < num_words; ++i) {
+    while (predicted_words < num_words) {
         auto predicted_id = predict_id(context_ids);
         context_ids.push_back(predicted_id);
+        // if predicted word is not a tag
+        if (predicted_id > 2) {
+            predicted_words++;
+        }
     }
-    // get back words that was unknown to the model
+
+    // get back words that were unknown to the model
     auto result = convert_to_words(context_ids);
     for (size_t i = 0; i < context.size(); ++i) {
         result[i] = context[i];
