@@ -39,6 +39,7 @@ void ngram_predictor::parallel_read_pipeline(const std::string &path) {
         threads.emplace_back([&]() { merge_temp_ngram_dict_to_global();});
     }
 
+    m_accessors = 1;
     oneapi::tbb::parallel_pipeline(MAX_LIVE_TOKENS,
                    oneapi::tbb::make_filter<void, std::filesystem::path>(
                    oneapi::tbb::filter_mode::serial_out_of_order,
@@ -70,18 +71,11 @@ void ngram_predictor::parallel_read_pipeline(const std::string &path) {
                     oneapi::tbb::make_filter<std::pair<std::string, std::string>, void>(
                    oneapi::tbb::filter_mode::parallel,
                    [this](const std::pair<std::string, std::string>& raw_file) {
-                       {
-                           std::lock_guard<std::mutex> lock(m_accessors_mutex);
-                           ++m_accessors;
-                       }
                        count_ngrams_in_file(raw_file);
-                       {
-                           std::lock_guard<std::mutex> lock(m_accessors_mutex);
-                           --m_accessors;
-                           m_merge_cv.notify_all();
-                       }
                    })
     );
+    m_accessors = 0;
+    m_merge_cv.notify_all();
 
     for (auto& thread : threads) {
         thread.join();
@@ -100,12 +94,12 @@ auto ngram_predictor::get_path_if_fit(const std::filesystem::directory_entry& en
 
 auto ngram_predictor::read_file_into_binary(const std::filesystem::path& filename) -> std::pair<std::string, std::string> {
     if (filename.empty()) {
-        return {};
+        return {{},{}};
     }
     std::ifstream file(filename, std::ios::binary);
     if (!file.is_open()) {
 //        std::cerr << "Failed to open file " << filename << std::endl;
-        return {};
+        return {{},{}};
     }
 
     auto char_count = std::filesystem::file_size(filename);
@@ -170,7 +164,6 @@ void ngram_predictor::count_ngrams_in_str(std::string &file_content) {
     auto contents = bl::fold_case(bl::normalize(file_content));
     bl::boundary::ssegment_index sentence_index(bl::boundary::sentence, contents.begin(), contents.end());
     sentence_index.rule(bl::boundary::sentence_term);
-    ngram_dict_id_tbb::accessor a;
 
     ngram_dict_id curr_ngram_dict;
 
@@ -191,6 +184,9 @@ void ngram_predictor::count_ngrams_in_str(std::string &file_content) {
         }
 
         for (const auto &word : words_index) {
+            if (word.empty()) {
+                continue;
+            }
             temp_ngram.emplace_back(convert_to_id(word, true));
             if (temp_ngram.size() == m_n) {
 //                m_ngram_dict_id.insert(a, temp_ngram);
@@ -211,34 +207,50 @@ void ngram_predictor::count_ngrams_in_str(std::string &file_content) {
             }
         }
     }
+
+    if (curr_ngram_dict.empty()) {
+        return;
+    }
+
+    std::cout << "waiting to push " << std::this_thread::get_id()<< std::endl;
     m_q_temp_ngram_dict.push(curr_ngram_dict);
+    std::cout << "pushed " << std::this_thread::get_id()<< std::endl;
     m_merge_cv.notify_one();
 }
 
 void ngram_predictor::merge_temp_ngram_dict_to_global() {
+    std::cout << "Merge thread started" << std::endl;
     while (true) {
         {
             std::unique_lock<std::mutex> lock(m_merge_mutex);
             ngram_dict_id curr_ngram_dict;
+            std::cout << std::this_thread::get_id() << " merge started waiting" << std::endl;
             m_merge_cv.wait(lock,
-                            [this] { return !m_q_temp_ngram_dict.empty() || (!m_accessors && m_was_writen_to_db); });
+                            [this] {
+                return !m_q_temp_ngram_dict.empty() || (!m_accessors && m_was_writen_to_db);
+            });
+            std::cout << std::this_thread::get_id() << " merge finished waiting" << std::endl;
             if (m_q_temp_ngram_dict.empty()) {
+                std::cout << std::this_thread::get_id() << " merge I leave" << std::endl;
                 break;
             }
             m_q_temp_ngram_dict.pop(curr_ngram_dict);
             for (auto const &[key, val]: curr_ngram_dict) {
                 m_ngram_dict_id[key] += val;
             }
+            std::cout << std::this_thread::get_id() << " merge I added" << std::endl;
         }
         {
             std::unique_lock<std::mutex> lock(m_merge_mutex);
-            if (m_ngram_dict_id.size() > MAX_NGRAM_DICT_SIZE) {
+            std::cout << "GET NGRAM DICT SIZE " << m_ngram_dict_id.size() << std::endl;
+            if (m_ngram_dict_id.size() > MAX_NGRAM_DICT_SIZE || (!m_accessors && !m_was_writen_to_db)) {
+                std::cout << std::this_thread::get_id() << " merge adding to db" << std::endl;
                 write_ngrams_to_db();
                 m_ngram_dict_id.clear();
             }
         }
     }
-
+    std::cout << "Merge thread finished" << std::this_thread::get_id() << std::endl;
 }
 
 void ngram_predictor::write_ngrams_freq(const std::string &filename) {

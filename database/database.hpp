@@ -1,3 +1,6 @@
+// This is a personal academic project. Dear PVS-Studio, please check it.
+// PVS-Studio Static Code Analyzer for C, C++, C#, and Java: http://www.viva64.com
+
 #pragma once
 
 #include <string>
@@ -29,6 +32,7 @@ public:
     auto drop_table(const std::string& name) -> void;
     auto begin_transaction() -> void;
     auto commit_transaction() -> void;
+    auto pragma_shrink_memory_vacuum() -> void;
 
     auto create_unique_index(const std::string& table, const std::string& columns) -> void;
     auto insert(const std::string& table, const std::string& columns, const std::string& values) -> void;

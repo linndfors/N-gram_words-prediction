@@ -43,7 +43,7 @@ public:
     using q_ngram_dict_id = oneapi::tbb::concurrent_bounded_queue<ngram_dict_id>;
     using ngram_dict_id_tbb = oneapi::tbb::concurrent_hash_map<ngram_id, uint32_t>;
     using words_dict_tbb = oneapi::tbb::concurrent_hash_map<word, id>;
-    static constexpr auto DB_PATH = "./ngrams_test.db";
+    static constexpr auto DB_PATH = "./ngrams_test_bd.db";
 
 
     explicit ngram_predictor(int n);
@@ -67,7 +67,8 @@ public:
 private:
     static constexpr auto MAX_LIVE_TOKENS = size_t{16};
     static constexpr auto MERGE_THREADS = size_t{4};
-    static constexpr auto MAX_NGRAM_DICT_SIZE = size_t{10};
+    static constexpr auto MAX_NGRAM_DICT_SIZE = size_t{10'000'000};
+    static constexpr auto MAX_Q_SIZE = size_t{1000};
     static constexpr auto MAX_FILE_SIZE = size_t{10'000'000};
     
     static constexpr auto START_TAG_ID = uint32_t{1};
@@ -97,7 +98,6 @@ private:
     int m_n;
     std::mutex m_words_id_mutex;
     std::mutex m_merge_mutex;
-    std::mutex m_accessors_mutex;
     std::condition_variable m_merge_cv;
     int m_accessors{0};
     bool m_was_writen_to_db{false};

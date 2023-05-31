@@ -13,7 +13,7 @@ ngram_predictor::ngram_predictor(int n)
     : m_n{n}
     , m_words_dict{{"<s>", START_TAG_ID}, {"</s>", END_TAG_ID}, {"<unk>", UNKNOWN_TAG_ID}}
 {
-    m_q_temp_ngram_dict.set_capacity(1000);
+    m_q_temp_ngram_dict.set_capacity(MAX_Q_SIZE);
     boost::locale::generator gen;
     std::locale loc = gen("en_US.UTF-8");
     std::locale::global(loc);
@@ -238,6 +238,7 @@ void ngram_predictor::print_predicting_time() const
 
 void ngram_predictor::write_ngrams_to_db() 
 {
+    std::cout << std::this_thread::get_id() << " started writing ngrams to db" << std::endl;
     auto start = get_current_time_fenced();
 
     // open database
@@ -292,12 +293,15 @@ void ngram_predictor::write_ngrams_to_db()
         }
     }
     db.commit_transaction();
+    db.pragma_shrink_memory_vacuum();
 
     if (!m_was_writen_to_db) {
         m_was_writen_to_db = true;
     }
     auto end = get_current_time_fenced();
     m_writing_ngrams_to_db_time += to_ms(end - start);
+
+    std::cout << std::this_thread::get_id() << " finished writing ngrams to db" << std::endl;
 }
 
 void ngram_predictor::write_words_to_db() 

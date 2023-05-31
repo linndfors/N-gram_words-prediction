@@ -1,5 +1,9 @@
-#include "database.hpp"
+// This is a personal academic project. Dear PVS-Studio, please check it.
+// PVS-Studio Static Code Analyzer for C, C++, C#, and Java: http://www.viva64.com
 
+
+#include "database.hpp"
+#include "memory_usage.hpp"
 #include <cassert>
 #include <iostream>
 
@@ -56,6 +60,12 @@ auto DataBase::commit_transaction() -> void
     execute_query("COMMIT;");
 }
 
+auto DataBase::pragma_shrink_memory_vacuum() -> void
+{
+    execute_query("PRAGMA shrink_memory;");
+    execute_query("VACUUM;");
+}
+
 auto DataBase::create_unique_index(const std::string &table, const std::string &columns) -> void
 {
     auto query = "CREATE UNIQUE INDEX IF NOT EXISTS " + table + "_unique_idx ON " + table + " (" + columns + ");";
@@ -74,6 +84,7 @@ auto DataBase::insert(const std::string &table, const std::string &columns, cons
         sqlite3_finalize(stmt);
         report_error("Error inserting data into table " + table);
     }
+    sqlite3_finalize(stmt);
 }
 
 auto DataBase::insert_with_conflict(const std::string &table, const std::string &columns, const std::string &conflict_column, const std::string &values, const std::string& conflict_value) -> void
@@ -90,6 +101,7 @@ auto DataBase::insert_with_conflict(const std::string &table, const std::string 
         sqlite3_finalize(stmt);
         report_error("Error inserting data into table " + table);
     }
+    sqlite3_finalize(stmt);
 }
 
 
