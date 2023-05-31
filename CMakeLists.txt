@@ -22,6 +22,7 @@ add_executable(${MAIN_EXE_NAME}
         ngram_predictor/smoothing.h ngram_predictor/reduce_n_gram.cpp
         ngram_predictor/reduce_n_gram.h
         database/database.cpp database/database.hpp
+        ngram_predictor/perplexity.cpp ngram_predictor/perplexity.h
         )
 
 find_package(SQLite3 REQUIRED)
