@@ -1,7 +1,7 @@
 #include "ngram_predictor/ngram_predictor.hpp"
 #include "ngram_predictor/time_measurements.hpp"
 
-#include "ngram_predictor/smoothing.h"
+#include "ngram_predictor/perplexity.h"
 #include "ngram_predictor/reduce_n_gram.h"
 
 #include "database/database.hpp"
@@ -83,8 +83,8 @@ auto ngram_predictor::predict_id(const ngram_id& context) const-> id
     int res_word_id = find_word(current_n, context);
     while (res_word_id == 0) {
         std::string current_table_name = "n" + std::to_string(current_n) + "_grams_frequency";
-        std::cout<<"current_table_name: "<<current_table_name<<std::endl;
-        reduce(current_table_name, current_n);
+//        std::cout<<"current_table_name: "<<current_table_name<<std::endl;
+//        reduce(current_table_name, current_n);
         current_n--;
         res_word_id = find_word(current_n, context);
     }
@@ -174,6 +174,7 @@ auto ngram_predictor::predict_words(int num_words, ngrams& context) -> ngrams
 
     context = clean_context(context);
     int predicted_words = 0;
+    int start_context_size = context.size();
 
     auto context_ids = convert_to_ids(context, false);
 
@@ -188,7 +189,7 @@ auto ngram_predictor::predict_words(int num_words, ngrams& context) -> ngrams
     }
 
     // get back words that were unknown to the model
-    auto result = convert_to_words(context_ids);
+    auto result = convert_to_words(context_ids, start_context_size);
     for (size_t i = 0; i < context.size(); ++i) {
         result[i] = context[i];
     }
@@ -237,8 +238,11 @@ auto ngram_predictor::convert_to_id(const ngram_predictor::word &word, bool trai
     return convert_to_ids({word}, train).front();
 }
 
-auto ngram_predictor::convert_to_words(const ngram_predictor::ngram_id &ngram) -> ngrams 
+auto ngram_predictor::convert_to_words(const ngram_predictor::ngram_id &ngram, int start_context_size) const -> ngrams
 {
+    ngram_predictor::ngram_id without_context(ngram.begin() + start_context_size - m_n - 1, ngram.end());
+    double perp = calculate_ppl(m_n, without_context);
+    std::cout<<"perp: "<<perp<<std::endl;
     ngrams ngram_words;
     for (const auto& id : ngram) {
         ngram_words.push_back(convert_to_word(id));
