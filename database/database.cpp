@@ -68,6 +68,7 @@ auto DataBase::insert(const std::string &table, const std::string &columns, cons
         sqlite3_finalize(stmt);
         report_error("Error inserting data into table " + table);
     }
+    sqlite3_finalize(stmt);
 }
 
 
