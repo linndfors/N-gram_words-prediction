@@ -174,9 +174,11 @@ auto ngram_predictor::predict_words(int num_words, ngrams& context) -> ngrams
 
     context = clean_context(context);
     int predicted_words = 0;
-    int start_context_size = context.size();
 
     auto context_ids = convert_to_ids(context, false);
+
+//    double perp = calculate_ppl(m_n, context_ids);
+//    std::cout<<"Perplexity index: "<<perp<<std::endl;
 
     // predict new word based on n previous and add it to context
     while (predicted_words < num_words) {
@@ -189,7 +191,7 @@ auto ngram_predictor::predict_words(int num_words, ngrams& context) -> ngrams
     }
 
     // get back words that were unknown to the model
-    auto result = convert_to_words(context_ids, start_context_size);
+    auto result = convert_to_words(context_ids);
     for (size_t i = 0; i < context.size(); ++i) {
         result[i] = context[i];
     }
@@ -238,11 +240,8 @@ auto ngram_predictor::convert_to_id(const ngram_predictor::word &word, bool trai
     return convert_to_ids({word}, train).front();
 }
 
-auto ngram_predictor::convert_to_words(const ngram_predictor::ngram_id &ngram, int start_context_size) const -> ngrams
+auto ngram_predictor::convert_to_words(const ngram_predictor::ngram_id &ngram) const -> ngrams
 {
-    ngram_predictor::ngram_id without_context(ngram.begin() + start_context_size - m_n - 1, ngram.end());
-    double perp = calculate_ppl(m_n, without_context);
-    std::cout<<"perp: "<<perp<<std::endl;
     ngrams ngram_words;
     for (const auto& id : ngram) {
         ngram_words.push_back(convert_to_word(id));

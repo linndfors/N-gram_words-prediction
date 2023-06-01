@@ -1,4 +1,5 @@
 #include "perplexity.h"
+#include <limits>
 
 double calculate_conditional_prob(ngram_predictor::ngram_id& vals, int n, DataBase& db) {
 
@@ -6,6 +7,7 @@ double calculate_conditional_prob(ngram_predictor::ngram_id& vals, int n, DataBa
     int rc;
     double nom = 0;
     double denom = 0;
+    double minvalue = 0.0001;
 
     std::string table_name = "n" + std::to_string(n) +"_grams_frequency";
     std::string sum_freq_query = "";
@@ -56,7 +58,9 @@ double calculate_conditional_prob(ngram_predictor::ngram_id& vals, int n, DataBa
         std::cerr << "Error executing query" << std::endl;
     }
 
-    if (nom == 0) ++nom;
+    if (nom == 0) {
+        nom = minvalue;
+    }
     if (denom == 0) ++denom;
 
     double conditional_prob = nom / denom;
@@ -64,24 +68,23 @@ double calculate_conditional_prob(ngram_predictor::ngram_id& vals, int n, DataBa
 }
 
 double calculate_ppl(int n, const ngram_predictor::ngram_id& sentence) {
-
     auto db = DataBase(ngram_predictor::DB_PATH);
 
     ngram_predictor::ngram_id curr_ngram;
-
+    double ppl = 0;
     for (int i = 0; i < n; ++i) {
         curr_ngram.emplace_back(sentence[i]);
     }
-
-    double ppl = 0;
+    double conditional_prob = calculate_conditional_prob(curr_ngram, n, db);
+    ppl += -std::log(conditional_prob);
 
     for (int i = n; i < sentence.size(); ++i) {
-        double conditional_prob = calculate_conditional_prob(curr_ngram, n, db);
-        ppl += -std::log(conditional_prob);
         curr_ngram.erase(curr_ngram.begin());
         curr_ngram.emplace_back(sentence[i]);
-    }
+        conditional_prob = calculate_conditional_prob(curr_ngram, n, db);
+        ppl += -std::log(conditional_prob);
 
+    }
     double result = std::exp(ppl / sentence.size());
     return result;
 }
