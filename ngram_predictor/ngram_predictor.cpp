@@ -177,8 +177,8 @@ auto ngram_predictor::predict_words(int num_words, ngrams& context) -> ngrams
 
     auto context_ids = convert_to_ids(context, false);
 
-//    double perp = calculate_ppl(m_n, context_ids);
-//    std::cout<<"Perplexity index: "<<perp<<std::endl;
+    double perp = calculate_ppl(m_n, context_ids);
+    std::cout<<"Perplexity index: "<<perp<<std::endl;
 
     // predict new word based on n previous and add it to context
     while (predicted_words < num_words) {
