@@ -1,6 +1,6 @@
 # N-gram_words-prediction
 
-#### Execution
+## Execution
 
 Firtly you need to compile a program:
 ```
@@ -49,15 +49,10 @@ This is file with needed realisation. It is taken from [course](https://www.yout
 * Some [other realisation](https://www.kaggle.com/code/sauravmaheshkar/auto-completion-using-n-gram-models)
 
 ### Datasets
-* [Google Web 5gram](https://catalog.ldc.upenn.edu/LDC2006T13): contains English word n-grams and their observed frequency counts (24 GB)
+* [Books in plain text for train language models](https://catalog.ldc.upenn.edu/LDC2006T13](https://www.kaggle.com/datasets/paulrohan2020/huge-books-in-plain-text-for-train-language-models)(6 GB)
 
 * [Gutenberg Standardized Corpus](https://github.com/pgcorpus/gutenberg): Standardized Project Gutenberg Corpus, 55905 books (3GB counts + 18GB tokens)
 
-* [Harvard Library](http://library.harvard.edu/open-metadata#Harvard-Library-Bibliographic-Dataset): over 12 million bibliographic records for materials held by the Harvard Library, including books, journals, electronic resources, manuscripts, archival materials, scores, audio, video and other materials. (4 GB)
-
-* [Historical Newspapers Yearly N-grams and Entities Dataset](https://data.bris.ac.uk/data/dataset/dobuvuu00mh51q773bo8ybkdz): Yearly time series for the usage of the 1,000,000 most frequent 1-, 2-, and 3-grams from a subset of the British Newspaper Archive corpus, along with yearly time series for the 100,000 most frequent named entities linked to Wikipedia and a list of all articles and newspapers contained in the dataset (3.1 GB)
-
-* [Brown corpus](http://www.sls.hawaii.edu/bley-vroman/brown_corpus.html): the Brown corpus (full name  Brown University Standard Corpus of Present-Day American English) was the first text corpus of American English. The original corpus was published in 1963–1964 by W. Nelson Francis and Henry Kučera (Department of Linguistics, Brown University Providence, Rhode Island, USA). The corpus consists of 1 million words (500 samples of 2000+ words each) of running text of edited English prose printed in the United States during the year 1961 and it was revised and amplified in 1979.
 
 * Other useful datasets for NLP can be found [here](https://github.com/niderhoff/nlp-datasets)
 
