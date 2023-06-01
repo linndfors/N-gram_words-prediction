@@ -1,5 +1,8 @@
-#include "database.hpp"
+// This is a personal academic project. Dear PVS-Studio, please check it.
+// PVS-Studio Static Code Analyzer for C, C++, C#, and Java: http://www.viva64.com
 
+
+#include "database.hpp"
 #include <cassert>
 #include <iostream>
 
@@ -56,10 +59,39 @@ auto DataBase::commit_transaction() -> void
     execute_query("COMMIT;");
 }
 
+auto DataBase::pragma_shrink_memory_vacuum() -> void
+{
+    execute_query("PRAGMA shrink_memory;");
+    execute_query("VACUUM;");
+}
+
+auto DataBase::create_unique_index(const std::string &table, const std::string &columns) -> void
+{
+    auto query = "CREATE UNIQUE INDEX IF NOT EXISTS " + table + "_unique_idx ON " + table + " (" + columns + ");";
+    execute_query(query);
+}
+
 auto DataBase::insert(const std::string &table, const std::string &columns, const std::string &values) -> void
 {
     sqlite3_stmt* stmt;
     auto query = "INSERT INTO " + table + " (" + columns + ") VALUES(" + values + ");";
+    if (sqlite3_prepare( m_dataBase, query.c_str(), -1, &stmt, nullptr ) != SQLITE_OK) {
+        sqlite3_finalize(stmt);
+        report_error("Error preparing SQL query " + query);
+    }
+    if (sqlite3_step(stmt) != SQLITE_DONE) {
+        sqlite3_finalize(stmt);
+        report_error("Error inserting data into table " + table);
+    }
+    sqlite3_finalize(stmt);
+}
+
+auto DataBase::insert_with_conflict(const std::string &table, const std::string &columns, const std::string &conflict_column, const std::string &values, const std::string& conflict_value) -> void
+{
+    sqlite3_stmt* stmt;
+    auto query = "INSERT INTO " + table + " (" + columns + ", " + conflict_column + ") VALUES (" + values + ", " + conflict_value + ") ON CONFLICT (" + columns + ") DO UPDATE SET "
+            + conflict_column + " = " + table + "." + conflict_column + " + " + conflict_value + ";";
+//            + " WHERE (" + columns + ") = (" + values + ");";
     if (sqlite3_prepare( m_dataBase, query.c_str(), -1, &stmt, nullptr ) != SQLITE_OK) {
         sqlite3_finalize(stmt);
         report_error("Error preparing SQL query " + query);

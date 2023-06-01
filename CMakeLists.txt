@@ -1,7 +1,7 @@
 cmake_minimum_required(VERSION 3.23)
 project(ngram)
 
-set(TRAIN_EXE_NAME main)
+set(TRAIN_EXE_NAME train)
 set(PREDICT_EXE_NAME predict)
 set(MAIN_EXE_NAME main)
 set(EXECUTABLE_OUTPUT_PATH ../bin)
@@ -40,6 +40,3 @@ target_link_libraries(${MAIN_EXE_NAME} Boost::system Boost::locale)
 target_link_libraries(${MAIN_EXE_NAME} archive)
 target_link_libraries(${MAIN_EXE_NAME} Threads::Threads)
 target_link_libraries(${MAIN_EXE_NAME} TBB::tbb)
-
-
-
