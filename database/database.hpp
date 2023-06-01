@@ -15,6 +15,8 @@ struct sqlite3;
 class DataBase 
 {
 public:
+    sqlite3* m_dataBase{nullptr};
+
     explicit DataBase(const std::string& path);
     DataBase(const DataBase&) = delete;
     DataBase(DataBase&&) = delete;    
@@ -79,5 +81,5 @@ private:
     auto execute_query(const std::string &query) -> void;
     auto report_error(const std::string& msg) -> void;
 
-    sqlite3* m_dataBase{nullptr};
+//    sqlite3* m_dataBase{nullptr};
 };

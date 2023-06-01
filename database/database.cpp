@@ -3,7 +3,6 @@
 
 
 #include "database.hpp"
-#include "memory_usage.hpp"
 #include <cassert>
 #include <iostream>
 

@@ -1,12 +1,11 @@
 #include "ngram_predictor/ngram_predictor.hpp"
 #include "ngram_predictor/time_measurements.hpp"
 
-#include "ngram_predictor/smoothing.h"
+#include "ngram_predictor/perplexity.h"
 #include "ngram_predictor/reduce_n_gram.h"
 
 #include "database/database.hpp"
-#include <limits.h>
-
+#include <climits>
 
 
 ngram_predictor::ngram_predictor(int n) 
@@ -83,7 +82,7 @@ auto ngram_predictor::predict_id(const ngram_id& context) const-> id
     int res_word_id = find_word(current_n, context);
     while (res_word_id == 0) {
         std::string current_table_name = "n" + std::to_string(current_n) + "_grams_frequency";
-//        std::cout<<"here0"<<std::endl;
+//        std::cout<<"current_table_name: "<<current_table_name<<std::endl;
 //        reduce(current_table_name, current_n);
         current_n--;
         res_word_id = find_word(current_n, context);
@@ -132,6 +131,35 @@ auto ngram_predictor::clean_context(ngrams& context) const -> ngrams
     return context;
 }
 
+auto ngram_predictor::remove_tags(ngram_predictor::ngrams& words) -> ngrams {
+    ngrams res;
+    bool capitalize = false;
+
+    for (const auto & word : words) {
+        if (word == "</s>") {
+            if (!res.empty() && res.back().back() != '.' && res.back() != "</s>") {
+                res[res.size() - 1] += ".";
+                capitalize = true;
+            }
+        } else if (word != "<s>") {
+            if (capitalize) {
+                res.push_back(boost::locale::to_title(word));
+                capitalize = false;
+            } else {
+                res.push_back(word);
+            }
+        }
+    }
+    // Capitalize the first word
+    if (!res.empty()) {
+        res[0] = boost::locale::to_title(res[0]);
+    }
+
+    return res;
+}
+
+
+
 auto ngram_predictor::predict_words(int num_words, ngrams& context) -> ngrams 
 {
     auto start = get_current_time_fenced();
@@ -144,14 +172,24 @@ auto ngram_predictor::predict_words(int num_words, ngrams& context) -> ngrams
     }
 
     context = clean_context(context);
+    int predicted_words = 0;
 
     auto context_ids = convert_to_ids(context, false);
+
+    double perp = calculate_ppl(m_n, context_ids);
+    std::cout<<"Perplexity index: "<<perp<<std::endl;
+
     // predict new word based on n previous and add it to context
-    for(int i = 0; i < num_words; ++i) {
+    while (predicted_words < num_words) {
         auto predicted_id = predict_id(context_ids);
         context_ids.push_back(predicted_id);
+        // if predicted word is not a tag
+        if (predicted_id > 2) {
+            predicted_words++;
+        }
     }
-    // get back words that was unknown to the model
+
+    // get back words that were unknown to the model
     auto result = convert_to_words(context_ids);
     for (size_t i = 0; i < context.size(); ++i) {
         result[i] = context[i];
@@ -159,7 +197,7 @@ auto ngram_predictor::predict_words(int num_words, ngrams& context) -> ngrams
 
     auto end = get_current_time_fenced();
     m_predicting_time = to_ms(end - start);
-    return result;
+    return remove_tags(result);
 }
 
 auto ngram_predictor::convert_to_ids(const ngram_predictor::ngrams &ngram, bool train) -> ngram_id 
@@ -201,7 +239,7 @@ auto ngram_predictor::convert_to_id(const ngram_predictor::word &word, bool trai
     return convert_to_ids({word}, train).front();
 }
 
-auto ngram_predictor::convert_to_words(const ngram_predictor::ngram_id &ngram) -> ngrams 
+auto ngram_predictor::convert_to_words(const ngram_predictor::ngram_id &ngram) const -> ngrams
 {
     ngrams ngram_words;
     for (const auto& id : ngram) {

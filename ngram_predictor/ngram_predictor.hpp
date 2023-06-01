@@ -56,6 +56,7 @@ public:
     void read_corpus(const std::string& path);
     auto predict_words(int num_words, ngrams& context) -> ngrams;
     auto clean_context(ngrams& context) const -> ngrams;
+    auto remove_tags(ngrams& words) -> ngrams;
 
     auto print_training_time() const -> void;
     auto print_predicting_time() const -> void;
@@ -88,13 +89,13 @@ private:
     auto write_ngrams_to_db() -> void;
     auto write_words_to_db() -> void;
 
-    auto convert_to_words(const ngram_id& ngram) -> ngrams;
-    auto convert_to_word(const id& id) -> word;
+    auto convert_to_words(const ngram_id& ngram) const -> ngrams;
+    static auto convert_to_word(const id& id) -> word;
     auto convert_to_ids(const ngrams& ngram, bool train) -> ngram_id;
     auto convert_to_id(const word& word, bool train) -> id;
 
     auto predict_id(const ngram_id& context) const -> id;
-    static auto find_word(const int n, const ngram_id& context);
+    static auto find_word(int n, const ngram_id& context);
     int m_n;
     std::mutex m_words_id_mutex;
     std::mutex m_merge_mutex;
