@@ -238,7 +238,6 @@ void ngram_predictor::write_ngrams_to_db()
     if (m_ngram_dict_id.empty()) {
         return;
     }
-    std::cout << std::this_thread::get_id() << " started writing ngrams to db" << std::endl;
     auto start = get_current_time_fenced();
 
     // open database
@@ -300,8 +299,6 @@ void ngram_predictor::write_ngrams_to_db()
     }
     auto end = get_current_time_fenced();
     m_writing_ngrams_to_db_time += to_ms(end - start);
-
-    std::cout << std::this_thread::get_id() << " finished writing ngrams to db" << std::endl;
 }
 
 void ngram_predictor::write_words_to_db() 
