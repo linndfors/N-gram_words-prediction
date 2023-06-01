@@ -9,16 +9,24 @@ $ ./bin/ngram path n n_words_to_predict context*
 
 #### Execution
 ![image](https://user-images.githubusercontent.com/92580927/228017231-fbad39e6-c43a-44ab-84bb-d71e48ebd5d6.png)
+Firtly you need to compile a program:
+```
+./compile.sh -d -O
+```
+Then, you need to train it on the dataset you have:
+```
+./bin/main predict path_to_dataset ngram_size
 
 ```
-$ ./bin/ngram ./corpus.txt 2 6
-the cat and dog watched in the
+Finally, to predict some words:
+*you should already have n-gram table
+```
+./bin/main train ngram_size number_of_words_to_predict *context*
+```
 
-$ ./bin/ngram ./corpus.txt 2 6 the cat
+```
+$ ./bin/main predict 2 6 the cat
 and dog watched in the cat and
-
-$ ./bin/ngram ./corpus.txt 2 6 warmth
-enveloped the cat and dog watched in
 ```
 
 
