@@ -18,7 +18,7 @@ Finally, to predict some words:
 ```
 *context is optional
 ```
-$ ./bin/main predict 2 6 the cat
+./bin/main predict 2 6 the cat
 and dog watched in the cat and
 ```
 
