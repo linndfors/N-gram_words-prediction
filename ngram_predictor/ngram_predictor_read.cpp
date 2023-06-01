@@ -36,7 +36,7 @@ void ngram_predictor::parallel_read_pipeline(const std::string &path) {
 
     std::vector<std::thread> threads;
     for (int i = 0; i < MERGE_THREADS; ++i) {
-        threads.emplace_back([&]() { merge_temp_ngram_dict_to_global();});
+        threads.emplace_back([this]() { merge_temp_ngram_dict_to_global();});
     }
 
     m_accessors = 1;
@@ -189,8 +189,6 @@ void ngram_predictor::count_ngrams_in_str(std::string &file_content) {
             }
             temp_ngram.emplace_back(convert_to_id(word, true));
             if (temp_ngram.size() == m_n) {
-//                m_ngram_dict_id.insert(a, temp_ngram);
-//                ++a->second;
                 curr_ngram_dict[temp_ngram]++;
                 temp_ngram.erase(temp_ngram.begin());
             }
@@ -200,8 +198,6 @@ void ngram_predictor::count_ngrams_in_str(std::string &file_content) {
         for (int i = 0; i < (m_n - 1); ++i) {
             temp_ngram.emplace_back(END_TAG_ID);
             if (temp_ngram.size() == m_n) {
-//                m_ngram_dict_id.insert(a, temp_ngram);
-//                ++a->second;
                 curr_ngram_dict[temp_ngram]++;
                 temp_ngram.erase(temp_ngram.begin());
             }
@@ -212,45 +208,36 @@ void ngram_predictor::count_ngrams_in_str(std::string &file_content) {
         return;
     }
 
-    std::cout << "waiting to push " << std::this_thread::get_id()<< std::endl;
     m_q_temp_ngram_dict.push(curr_ngram_dict);
-    std::cout << "pushed " << std::this_thread::get_id()<< std::endl;
     m_merge_cv.notify_one();
 }
 
 void ngram_predictor::merge_temp_ngram_dict_to_global() {
-    std::cout << "Merge thread started" << std::endl;
     while (true) {
+        ngram_dict_id curr_ngram_dict;
+
         {
             std::unique_lock<std::mutex> lock(m_merge_mutex);
-            ngram_dict_id curr_ngram_dict;
-            std::cout << std::this_thread::get_id() << " merge started waiting" << std::endl;
-            m_merge_cv.wait(lock,
-                            [this] {
-                return !m_q_temp_ngram_dict.empty() || (!m_accessors && m_was_writen_to_db);
-            });
-            std::cout << std::this_thread::get_id() << " merge finished waiting" << std::endl;
+            m_merge_cv.wait(lock, [this] { return !m_q_temp_ngram_dict.empty() || !m_accessors;});
             if (m_q_temp_ngram_dict.empty()) {
-                std::cout << std::this_thread::get_id() << " merge I leave" << std::endl;
                 break;
             }
             m_q_temp_ngram_dict.pop(curr_ngram_dict);
-            for (auto const &[key, val]: curr_ngram_dict) {
-                m_ngram_dict_id[key] += val;
-            }
-            std::cout << std::this_thread::get_id() << " merge I added" << std::endl;
         }
         {
             std::unique_lock<std::mutex> lock(m_merge_mutex);
-            std::cout << "GET NGRAM DICT SIZE " << m_ngram_dict_id.size() << std::endl;
-            if (m_ngram_dict_id.size() > MAX_NGRAM_DICT_SIZE || (!m_accessors && !m_was_writen_to_db)) {
-                std::cout << std::this_thread::get_id() << " merge adding to db" << std::endl;
+            for (auto const &[key, val]: curr_ngram_dict) {
+                m_ngram_dict_id[key] += val;
+            }
+        }
+        {
+            std::unique_lock<std::mutex> lock(m_merge_mutex);
+            if (m_ngram_dict_id.size() > MAX_NGRAM_DICT_SIZE || !m_accessors) {
                 write_ngrams_to_db();
                 m_ngram_dict_id.clear();
             }
         }
     }
-    std::cout << "Merge thread finished" << std::this_thread::get_id() << std::endl;
 }
 
 void ngram_predictor::write_ngrams_freq(const std::string &filename) {

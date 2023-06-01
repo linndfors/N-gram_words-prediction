@@ -22,9 +22,6 @@ ngram_predictor::ngram_predictor(int n)
 
     for (auto i = 0; i < m_n - 1; ++i) {
         sentence_tag.emplace_back(START_TAG_ID);
-//        ngram_dict_id_tbb::accessor a;
-//        m_ngram_dict_id.insert(a, sentence_tag);
-//        a->second = INT_MAX;
         m_ngram_dict_id[sentence_tag] = INT_MAX;
         sentence_tag.erase(sentence_tag.begin());
     }
@@ -171,16 +168,16 @@ auto ngram_predictor::convert_to_ids(const ngram_predictor::ngrams &ngram, bool 
     // if training, add new words to m_words_dict
     if (train) {
         words_dict_tbb::accessor a;
-        for (const auto &word: ngram) {
-            if (m_words_dict.find(a, word)) {
-                ngram_ids.push_back(a->second);
-            } else {
-                m_words_dict.insert(a, word);
-                {
-                    std::lock_guard<std::mutex> lock(m_words_id_mutex);
+        {
+            std::lock_guard<std::mutex> lock(m_words_id_mutex);
+            for (const auto &word: ngram) {
+                if (m_words_dict.find(a, word)) {
+                    ngram_ids.push_back(a->second);
+                } else {
+                    m_words_dict.insert(a, word);
                     a->second = ++m_last_word_id;
+                    ngram_ids.push_back(a->second);
                 }
-                ngram_ids.push_back(a->second);
             }
         }
         return ngram_ids;
@@ -238,6 +235,9 @@ void ngram_predictor::print_predicting_time() const
 
 void ngram_predictor::write_ngrams_to_db() 
 {
+    if (m_ngram_dict_id.empty()) {
+        return;
+    }
     std::cout << std::this_thread::get_id() << " started writing ngrams to db" << std::endl;
     auto start = get_current_time_fenced();
 
