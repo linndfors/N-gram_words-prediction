@@ -1,8 +1,8 @@
 #include "ngram_predictor/ngram_predictor.hpp"
 #include "ngram_predictor/time_measurements.hpp"
 
-#include "ngram_predictor/perplexity.h"
-#include "ngram_predictor/reduce_n_gram.h"
+#include "ngram_predictor/perplexity.hpp"
+#include "ngram_predictor/reduce_n_gram.hpp"
 
 #include "database/database.hpp"
 #include <climits>
@@ -77,13 +77,15 @@ auto ngram_predictor::predict_id(const ngram_id& context) const-> id
         std::cerr << "Error: no n-grams have been generated or the context is too short to generate a prediction" << std::endl;
         return -1;
     }
-
+    auto db = DataBase(DB_PATH);
     int current_n = m_n;
     int res_word_id = find_word(current_n, context);
     while (res_word_id == 0) {
         std::string current_table_name = "n" + std::to_string(current_n) + "_grams_frequency";
-//        std::cout<<"current_table_name: "<<current_table_name<<std::endl;
-//        reduce(current_table_name, current_n);
+        std::string sql = "select count(type) from sqlite_master where type='table' and name='" + current_table_name + "';";
+        if (db.check_table(sql) == 0) {
+            reduce(current_table_name, current_n);
+        }
         current_n--;
         res_word_id = find_word(current_n, context);
     }
@@ -176,8 +178,8 @@ auto ngram_predictor::predict_words(int num_words, ngrams& context) -> ngrams
 
     auto context_ids = convert_to_ids(context, false);
 
-    double perp = calculate_ppl(m_n, context_ids);
-    std::cout<<"Perplexity index: "<<perp<<std::endl;
+//    double perp = calculate_ppl(m_n, context_ids);
+//    std::cout<<"Perplexity index: "<<perp<<std::endl;
 
     // predict new word based on n previous and add it to context
     while (predicted_words < num_words) {

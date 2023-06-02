@@ -21,9 +21,9 @@ add_executable(${MAIN_EXE_NAME}
         memory_usage.hpp
         memory_usage.cpp
         ngram_predictor/reduce_n_gram.cpp
-        ngram_predictor/reduce_n_gram.h
+        ngram_predictor/reduce_n_gram.hpp
         database/database.cpp database/database.hpp
-        ngram_predictor/perplexity.cpp ngram_predictor/perplexity.h
+        ngram_predictor/perplexity.cpp ngram_predictor/perplexity.hpp
         )
 
 find_package(SQLite3 REQUIRED)

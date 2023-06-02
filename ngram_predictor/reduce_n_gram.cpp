@@ -1,4 +1,4 @@
-#include "ngram_predictor/reduce_n_gram.h"
+#include "ngram_predictor/reduce_n_gram.hpp"
 #include "database/database.hpp"
 #include "ngram_predictor.hpp"
 #include <sqlite3.h>

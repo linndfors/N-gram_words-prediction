@@ -1,5 +1,5 @@
-#ifndef NGRAM_PERPLEXITY_H
-#define NGRAM_PERPLEXITY_H
+#ifndef NGRAM_PERPLEXITY_HPP
+#define NGRAM_PERPLEXITY_HPP
 
 #include <sqlite3.h>
 #include <iostream>
@@ -11,4 +11,4 @@ double calculate_conditional_prob(ngram_predictor::ngram_id& vals, int n, DataBa
 
 double calculate_ppl(int n, const ngram_predictor::ngram_id& sentence);
 
-#endif //NGRAM_PERPLEXITY_H
+#endif //NGRAM_PERPLEXITY_HPP

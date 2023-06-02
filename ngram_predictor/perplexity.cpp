@@ -1,4 +1,4 @@
-#include "perplexity.h"
+#include "perplexity.hpp"
 #include <limits>
 
 double calculate_conditional_prob(ngram_predictor::ngram_id& vals, int n, DataBase& db) {

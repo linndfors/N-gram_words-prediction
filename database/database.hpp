@@ -39,7 +39,7 @@ public:
     auto create_unique_index(const std::string& table, const std::string& columns) -> void;
     auto insert(const std::string& table, const std::string& columns, const std::string& values) -> void;
     auto insert_with_conflict(const std::string& table, const std::string& columns, const std::string& conflict_column, const std::string& values, const std::string& conflict_value) -> void;
-
+    auto check_table(const std::string &query) -> int;
     template<class T>
     auto select(const std::string &table, const std::string &columns, const std::string &condition) -> std::vector<T> {
         if constexpr (!std::is_same_v<T, int> and !std::is_same_v<T, std::string>) {

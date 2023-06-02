@@ -125,3 +125,16 @@ auto DataBase::report_error(const std::string& msg) -> void
     auto error = msg + "\n" + sqlite3_errmsg(m_dataBase);
     throw database_error(error);
 }
+
+auto DataBase::check_table(const std::string &query) -> int {
+    sqlite3_stmt* stmt;
+    if (sqlite3_prepare_v2(m_dataBase, query.c_str(), -1, &stmt, nullptr) != SQLITE_OK) {
+        report_error("Error executing SQL query " + query);
+    }
+    int count = 0;
+    if (sqlite3_step(stmt) == SQLITE_ROW) {
+        count = sqlite3_column_int(stmt, 0);
+    }
+    sqlite3_finalize(stmt);
+    return count;
+}
