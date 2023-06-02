@@ -1,28 +1,46 @@
+#include "ngram_predictor/ngram_predictor.hpp"
+#include "ngram_predictor/time_measurements.hpp"
+
+#include "database/exception.hpp"
+#include <thread>
 #include <fstream>
-#include <iostream>
 #include <boost/locale.hpp>
 #include <archive.h>
 #include <archive_entry.h>
-#include "time_measurements.hpp"
-#include "oneapi/tbb/parallel_pipeline.h"
-#include "ngram_predictor.hpp"
+#include <oneapi/tbb/parallel_pipeline.h>
+#include <iostream>
 
+void ngram_predictor::read_corpus(const std::string& path)
+{
+    check_if_path_is_dir(path);
 
-void ngram_predictor::read_corpus() {
     auto start = get_current_time_fenced();
 
-    parallel_read_pipeline();
-    write_ngrams_to_db();
+    parallel_read_pipeline(path);
+    try {
+        write_words_to_db();
+        write_ngrams_to_db();
+    }
+    catch (const database_error& e) {
+        std::cerr << e.what() << std::endl;
+        e.exit();
+    }
 
     auto finish = get_current_time_fenced();
     m_total_training_time = to_ms(finish - start);
 }
 
-void ngram_predictor::parallel_read_pipeline() {
-    auto path_iter = std::filesystem::recursive_directory_iterator(m_path);
+void ngram_predictor::parallel_read_pipeline(const std::string &path) {
+    auto path_iter = std::filesystem::recursive_directory_iterator(path);
     auto path_end = std::filesystem::end(path_iter);
 
-    oneapi::tbb::parallel_pipeline(m_max_live_tokens,
+    std::vector<std::thread> threads;
+    for (int i = 0; i < MERGE_THREADS; ++i) {
+        threads.emplace_back([this]() { merge_temp_ngram_dict_to_global();});
+    }
+
+    m_accessors = 1;
+    oneapi::tbb::parallel_pipeline(MAX_LIVE_TOKENS,
                    oneapi::tbb::make_filter<void, std::filesystem::path>(
                    oneapi::tbb::filter_mode::serial_out_of_order,
                    [&](oneapi::tbb::flow_control& fc) -> std::filesystem::path {
@@ -56,11 +74,18 @@ void ngram_predictor::parallel_read_pipeline() {
                        count_ngrams_in_file(raw_file);
                    })
     );
+    m_accessors = 0;
+    m_merge_cv.notify_all();
+
+    for (auto& thread : threads) {
+        thread.join();
+    }
+
 }
 
 auto ngram_predictor::get_path_if_fit(const std::filesystem::directory_entry& entry) -> std::filesystem::path {
     auto extension = entry.path().extension().string();
-    if ((m_indexing_extensions.find(extension) != m_indexing_extensions.end() && entry.file_size() < m_max_file_size) ||
+    if ((m_indexing_extensions.find(extension) != m_indexing_extensions.end() && entry.file_size() < MAX_FILE_SIZE) ||
         (m_archives_extensions.find(extension) != m_archives_extensions.end()) ) {
         return entry.path();
     }
@@ -69,12 +94,12 @@ auto ngram_predictor::get_path_if_fit(const std::filesystem::directory_entry& en
 
 auto ngram_predictor::read_file_into_binary(const std::filesystem::path& filename) -> std::pair<std::string, std::string> {
     if (filename.empty()) {
-        return {};
+        return {{},{}};
     }
     std::ifstream file(filename, std::ios::binary);
     if (!file.is_open()) {
 //        std::cerr << "Failed to open file " << filename << std::endl;
-        return {};
+        return {{},{}};
     }
 
     auto char_count = std::filesystem::file_size(filename);
@@ -115,7 +140,7 @@ void ngram_predictor::count_ngrams_in_archive(const std::string &archive_content
             continue;
         }
         size_t size = archive_entry_size(entry);
-        if (size <= 0 || size > m_max_file_size) {
+        if (size <= 0 || size > MAX_FILE_SIZE) {
             continue;
         }
         std::string contents;
@@ -131,29 +156,87 @@ void ngram_predictor::count_ngrams_in_archive(const std::string &archive_content
     archive_read_free(archive);
 }
 
+
 void ngram_predictor::count_ngrams_in_str(std::string &file_content) {
     namespace bl = boost::locale;
 
+    // Normalize and fold case and, then, split into sentences
     auto contents = bl::fold_case(bl::normalize(file_content));
-    bl::boundary::ssegment_index words_index(bl::boundary::word, contents.begin(), contents.end());
-    words_index.rule(bl::boundary::word_letters);
+    bl::boundary::ssegment_index sentence_index(bl::boundary::sentence, contents.begin(), contents.end());
+    sentence_index.rule(bl::boundary::sentence_term);
 
-    ngram_id temp_ngram;
+    ngram_dict_id curr_ngram_dict;
 
-    ngram_dict_id_tbb::accessor a;
-    for (const auto &word : words_index) {
-        temp_ngram.emplace_back(convert_to_id(word, true));
-        if (temp_ngram.size() == m_n) {
-            m_ngram_dict_id.insert(a, temp_ngram);
-            ++a->second;
-            temp_ngram.erase(temp_ngram.begin());
+    for (const auto &sentence : sentence_index) {
+        // Split into words
+        bl::boundary::ssegment_index words_index(bl::boundary::word, sentence.begin(), sentence.end());
+        words_index.rule(bl::boundary::word_letters);
+
+        // Skip empty sentences
+        if (words_index.begin() == words_index.end()) {
+            continue;
+        }
+
+        // Add <s> tag at the beginning of the sentence
+        ngram_id temp_ngram;
+        for (int i = 0; i < m_n - 1; ++i) {
+            temp_ngram.emplace_back(START_TAG_ID);
+        }
+
+        for (const auto &word : words_index) {
+            if (word.empty()) {
+                continue;
+            }
+            temp_ngram.emplace_back(convert_to_id(word, true));
+            if (temp_ngram.size() == m_n) {
+                curr_ngram_dict[temp_ngram]++;
+                temp_ngram.erase(temp_ngram.begin());
+            }
+        }
+
+        // Add </s> tags at the end of the sentence
+        for (int i = 0; i < (m_n - 1); ++i) {
+            temp_ngram.emplace_back(END_TAG_ID);
+            if (temp_ngram.size() == m_n) {
+                curr_ngram_dict[temp_ngram]++;
+                temp_ngram.erase(temp_ngram.begin());
+            }
         }
     }
 
-    if (temp_ngram.size() < m_n) {
-        temp_ngram.insert(temp_ngram.begin(), M_START_TAG_ID, m_n - temp_ngram.size());
-        m_ngram_dict_id.insert(a, temp_ngram);
-        ++a->second;
+    if (curr_ngram_dict.empty()) {
+        return;
+    }
+
+    m_q_temp_ngram_dict.push(curr_ngram_dict);
+    m_merge_cv.notify_one();
+}
+
+void ngram_predictor::merge_temp_ngram_dict_to_global() {
+    while (true) {
+        ngram_dict_id curr_ngram_dict;
+
+        {
+            std::unique_lock<std::mutex> lock(m_merge_mutex);
+            m_merge_cv.wait(lock, [this] { return !m_q_temp_ngram_dict.empty() || !m_accessors;});
+            if (m_q_temp_ngram_dict.empty()) {
+                break;
+            }
+            m_q_temp_ngram_dict.pop(curr_ngram_dict);
+        }
+        {
+            std::unique_lock<std::mutex> lock(m_merge_mutex);
+            for (auto const &[key, val]: curr_ngram_dict) {
+                m_ngram_dict_id[key] += val;
+            }
+        }
+        {
+            std::unique_lock<std::mutex> lock(m_merge_mutex);
+            if (m_ngram_dict_id.size() > MAX_NGRAM_DICT_SIZE || !m_accessors) {
+                write_ngrams_to_db();
+                m_ngram_dict_id.clear();
+            }
+        }
     }
 }
 
